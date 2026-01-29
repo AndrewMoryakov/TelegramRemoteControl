@@ -1,0 +1,24 @@
+# Build output
+bin/
+obj/
+publish/
+
+# Claude/IDE hidden folders
+.claude/
+
+# IDE
+.vs/
+*.user
+.idea/
+*.suo
+*.sln.docstates
+
+# Config with secrets
+appsettings.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log
