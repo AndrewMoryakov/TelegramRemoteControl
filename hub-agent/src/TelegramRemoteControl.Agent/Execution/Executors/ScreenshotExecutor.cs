@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using TelegramRemoteControl.Agent.Helpers;
 using TelegramRemoteControl.Agent.Interop;
@@ -75,6 +76,36 @@ $bmp.Dispose()
                 Success = true,
                 Data = data,
                 FileName = "screenshot.png"
+            };
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == 6)
+        {
+            return new AgentResponse
+            {
+                RequestId = command.RequestId,
+                Type = ResponseType.Error,
+                Success = false,
+                ErrorMessage = "Скриншот недоступен: нет активного рабочего стола (сеанс заблокирован или агент запущен как сервис). Запустите агент в пользовательской сессии."
+            };
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new AgentResponse
+            {
+                RequestId = command.RequestId,
+                Type = ResponseType.Error,
+                Success = false,
+                ErrorMessage = ex.Message
+            };
+        }
+        catch (Exception ex)
+        {
+            return new AgentResponse
+            {
+                RequestId = command.RequestId,
+                Type = ResponseType.Error,
+                Success = false,
+                ErrorMessage = $"Ошибка скриншота: {ex.Message}"
             };
         }
         finally
