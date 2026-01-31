@@ -1,0 +1,17 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+COPY hub-agent/TelegramRemoteControl.sln hub-agent/
+COPY hub-agent/src/TelegramRemoteControl.BotService/TelegramRemoteControl.BotService.csproj hub-agent/src/TelegramRemoteControl.BotService/
+COPY hub-agent/src/TelegramRemoteControl.Shared/TelegramRemoteControl.Shared.csproj hub-agent/src/TelegramRemoteControl.Shared/
+
+RUN dotnet restore hub-agent/TelegramRemoteControl.sln
+
+COPY hub-agent/ hub-agent/
+
+RUN dotnet publish hub-agent/src/TelegramRemoteControl.BotService/TelegramRemoteControl.BotService.csproj -c Release -o /app/publish
+
+FROM mcr.microsoft.com/dotnet/runtime:8.0 AS runtime
+WORKDIR /app
+COPY --from=build /app/publish .
+ENTRYPOINT ["dotnet", "TelegramRemoteControl.BotService.dll"]

@@ -1,0 +1,52 @@
+services:
+  hub:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.hub
+    environment:
+      HubSettings__DatabasePath: /data/hub.db
+      HubSettings__ApiKey: ${HUB_API_KEY:-}
+      HubSettings__MaxAgentsPerUser: ${HUB_MAX_AGENTS_PER_USER:-10}
+      HubSettings__CommandTimeoutSeconds: ${HUB_COMMAND_TIMEOUT_SECONDS:-120}
+      HubSettings__MaxMessageSizeBytes: ${HUB_MAX_MESSAGE_SIZE_BYTES:-52428800}
+      HubSettings__AgentTimeoutSeconds: ${HUB_AGENT_TIMEOUT_SECONDS:-90}
+    volumes:
+      - hub-data:/data
+
+  bot:
+    build:
+      context: ../..
+      dockerfile: docker/Dockerfile.bot
+    depends_on:
+      - hub
+    environment:
+      BotSettings__Token: ${BOT_TOKEN}
+      BotSettings__HubUrl: http://hub:5000
+      BotSettings__HubApiKey: ${HUB_API_KEY:-}
+      BotSettings__AuthorizedUsers__0: ${ADMIN_USER_ID:-}
+      BotSettings__DeviceStatusMonitorEnabled: ${BOT_DEVICE_STATUS_MONITOR_ENABLED:-false}
+      BotSettings__DeviceStatusMonitorIntervalSeconds: ${BOT_DEVICE_STATUS_MONITOR_INTERVAL_SECONDS:-10}
+      BotSettings__FilesPageSize: ${BOT_FILES_PAGE_SIZE:-8}
+      BotSettings__FilesPreviewMaxChars: ${BOT_FILES_PREVIEW_MAX_CHARS:-3500}
+      BotSettings__FilesSessionTtlMinutes: ${BOT_FILES_SESSION_TTL_MINUTES:-2}
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - hub
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      CADDY_EMAIL: ${CADDY_EMAIL}
+      HUB_DOMAIN: ${HUB_DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  hub-data:
+  caddy-data:
+  caddy-config:
