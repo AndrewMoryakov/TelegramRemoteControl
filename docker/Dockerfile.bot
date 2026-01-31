@@ -1,11 +1,10 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-COPY hub-agent/TelegramRemoteControl.sln hub-agent/
 COPY hub-agent/src/TelegramRemoteControl.BotService/TelegramRemoteControl.BotService.csproj hub-agent/src/TelegramRemoteControl.BotService/
 COPY hub-agent/src/TelegramRemoteControl.Shared/TelegramRemoteControl.Shared.csproj hub-agent/src/TelegramRemoteControl.Shared/
 
-RUN dotnet restore hub-agent/TelegramRemoteControl.sln
+RUN dotnet restore hub-agent/src/TelegramRemoteControl.BotService/TelegramRemoteControl.BotService.csproj
 
 COPY hub-agent/ hub-agent/
 
