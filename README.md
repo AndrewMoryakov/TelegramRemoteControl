@@ -34,3 +34,7 @@ dotnet run --project hub-agent/src/TelegramRemoteControl.Agent/TelegramRemoteCon
 - Docker deploy: `docs/deploy_docker.md`
 - VPS + Caddy: `deploy/vps-caddy/GETTING_STARTED.md`
 
+## Security notes (important)
+- Hub API key is **configured but not enforced yet** (planned fix).
+- SignalR hub auth is not enforced yet (planned fix).
+- See `docs/security-audit.md` for the full list and priorities.

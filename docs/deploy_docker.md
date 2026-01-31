@@ -22,6 +22,7 @@ HUB_PORT=5000
 ```
 
 `ADMIN_USER_ID` — это администратор, который может делать `/approve` и `/deny`.
+`HUB_API_KEY` — общий секрет для BotService ↔ Hub (пока **не валидируется** на стороне Hub).
 
 ---
 
@@ -34,6 +35,9 @@ docker compose up -d --build
 ```
 
 Hub будет доступен на `http://<server>:HUB_PORT` (по умолчанию `5000`).
+
+> Важно: в текущей версии Hub не проверяет `X-Api-Key`.  
+> Для продакшена держите Hub в приватной сети (Tailscale/VPN) или включите reverse proxy + сетевые ограничения.
 
 ---
 

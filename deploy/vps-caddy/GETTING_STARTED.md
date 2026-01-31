@@ -29,6 +29,8 @@ CADDY_EMAIL=you@example.com
 HUB_DOMAIN=hub.example.com
 ```
 
+`HUB_API_KEY` — общий секрет для BotService ↔ Hub (пока **не валидируется** на стороне Hub).
+
 ---
 
 ## 3) Запуск
