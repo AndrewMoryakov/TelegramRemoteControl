@@ -15,9 +15,18 @@ try {
         throw "Project file not found: $project"
     }
 
-    Write-Host "Publishing agent ($Runtime, $Configuration)..." -ForegroundColor Cyan
+    if ($scriptRoot -match "^[A-Z]:\\\\") {
+        $drive = $scriptRoot.Substring(0, 2)
+        if ((Get-PSDrive -Name $drive.TrimEnd(':')).DisplayRoot) {
+            Write-Warning "Проект находится на сетевом диске ($drive). Публикация может быть медленной."
+        }
+    }
 
-    dotnet publish $project -c $Configuration -r $Runtime --self-contained true `
+    Write-Host "Restoring ($Runtime)..." -ForegroundColor Cyan
+    dotnet restore $project -r $Runtime
+
+    Write-Host "Publishing agent ($Runtime, $Configuration)..." -ForegroundColor Cyan
+    dotnet publish $project -c $Configuration -r $Runtime --self-contained true --no-restore `
         -o $output `
         -p:PublishSingleFile=true `
         -p:EnableCompressionInSingleFile=true `
