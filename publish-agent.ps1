@@ -23,7 +23,7 @@ try {
     }
 
     Write-Host "Restoring ($Runtime)..." -ForegroundColor Cyan
-    dotnet restore $project -r $Runtime
+    dotnet restore $project -r $Runtime -v minimal --disable-parallel --ignore-failed-sources
 
     Write-Host "Publishing agent ($Runtime, $Configuration)..." -ForegroundColor Cyan
     dotnet publish $project -c $Configuration -r $Runtime --self-contained true --no-restore `
