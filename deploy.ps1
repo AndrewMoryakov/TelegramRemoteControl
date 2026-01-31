@@ -3,11 +3,34 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$logPath = Join-Path (Get-Location) "deploy.log"
+
+function Try-StartTranscript {
+    try {
+        Start-Transcript -Path $logPath -Append | Out-Null
+    } catch {
+        # ignore if transcript is not supported
+    }
+}
+
+function Try-StopTranscript {
+    try {
+        Stop-Transcript | Out-Null
+    } catch {
+        # ignore
+    }
+}
 
 function Pause-IfNeeded {
     if (-not $NoPause) {
         Write-Host ""
-        Read-Host "Нажмите Enter, чтобы закрыть окно" | Out-Null
+        try {
+            Write-Host "Нажмите любую клавишу, чтобы закрыть окно..."
+            [Console]::ReadKey($true) | Out-Null
+        } catch {
+            # Non-interactive host: give time to read the output
+            Start-Sleep -Seconds 10
+        }
     }
 }
 
@@ -34,6 +57,8 @@ function Get-EnvMap {
 }
 
 try {
+    Try-StartTranscript
+
     if (-not (Test-Path ".env")) {
         if (Test-Path ".env.example") {
             Copy-Item ".env.example" ".env"
@@ -106,4 +131,9 @@ try {
     }
     Pause-IfNeeded
     exit 1
+} finally {
+    Try-StopTranscript
+    if (Test-Path $logPath) {
+        Write-Host "Лог сохранён в: $logPath"
+    }
 }
