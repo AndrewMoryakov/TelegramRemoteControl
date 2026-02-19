@@ -10,10 +10,11 @@ public class CommandExecutor
     private readonly Dictionary<CommandType, ICommandExecutor> _executors;
     private readonly ILogger<CommandExecutor> _logger;
 
-    public CommandExecutor(ILogger<CommandExecutor> logger, IOptions<AgentSettings> settings)
+    public CommandExecutor(ILogger<CommandExecutor> logger, IOptions<AgentSettings> settings, IOptions<AiSettings> aiSettings)
     {
         _logger = logger;
         var agentSettings = settings.Value;
+        var ai = aiSettings.Value;
         _executors = new Dictionary<CommandType, ICommandExecutor>
         {
             [CommandType.Status] = new StatusExecutor(),
@@ -39,7 +40,7 @@ public class CommandExecutor
             [CommandType.Restart] = new RestartExecutor(),
             [CommandType.Sleep] = new SleepExecutor(),
             [CommandType.Hibernate] = new HibernateExecutor(),
-            // TODO: Этап 3.4 — добавить остальные executors
+            [CommandType.AiChat] = new AiChatExecutor(ai),
         };
     }
 

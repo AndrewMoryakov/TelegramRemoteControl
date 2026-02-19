@@ -36,5 +36,8 @@ public enum CommandType
     FilePreview,
 
     // System
-    Ping
+    Ping,
+
+    // AI
+    AiChat
 }

@@ -7,6 +7,11 @@ Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 var builder = Host.CreateApplicationBuilder(args);
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
+builder.Logging.AddEventLog(settings =>
+{
+    settings.SourceName = "TRCAgent";
+    settings.LogName = "Application";
+});
 builder.Services.AddWindowsService();
 
 var settingsPath = Path.Combine(builder.Environment.ContentRootPath, "appsettings.json");
@@ -20,6 +25,7 @@ if (AgentSetupWizard.TryRun(settingsPath, currentSettings, args))
 }
 
 builder.Services.Configure<AgentSettings>(builder.Configuration.GetSection("Agent"));
+builder.Services.Configure<AiSettings>(builder.Configuration.GetSection("Ai"));
 builder.Services.AddSingleton<CommandExecutor>();
 builder.Services.AddHostedService<AgentService>();
 

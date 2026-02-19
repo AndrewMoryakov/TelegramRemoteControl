@@ -5,6 +5,7 @@ namespace TelegramRemoteControl.BotService.Menu;
 /// </summary>
 public static class Categories
 {
+    public const string Ai = "ai";
     public const string Info = "info";
     public const string Screen = "screen";
     public const string Shell = "shell";
@@ -13,6 +14,7 @@ public static class Categories
 
     public static string GetTitle(string category) => category switch
     {
+        Ai => "🧠 AI",
         Info => "📊 Информация",
         Screen => "🖥 Экран",
         Shell => "⚡ Команды",
@@ -22,5 +24,5 @@ public static class Categories
     };
 
     /// <summary>Порядок категорий в меню</summary>
-    public static readonly string[] Order = { Info, Screen, Shell, Control, System };
+    public static readonly string[] Order = { Ai, Info, Screen, Shell, Control, System };
 }

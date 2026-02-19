@@ -32,6 +32,13 @@ try {
         -p:EnableCompressionInSingleFile=true `
         -p:IncludeNativeLibrariesForSelfExtract=true
 
+    # Copy service scripts to publish output
+    $scriptsDir = Join-Path $scriptRoot "hub-agent/src/TelegramRemoteControl.Agent/Scripts"
+    if (Test-Path $scriptsDir) {
+        Copy-Item "$scriptsDir/*.bat" $output -Force
+        Write-Host "Service scripts copied to output." -ForegroundColor Cyan
+    }
+
     Write-Host ""
     Write-Host "Готово:" -ForegroundColor Green
     Write-Host "$output" -ForegroundColor Cyan

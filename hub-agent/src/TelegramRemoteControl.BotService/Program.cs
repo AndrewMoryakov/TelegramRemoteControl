@@ -25,6 +25,7 @@ builder.Services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botSetti
 builder.Services.AddHttpClient<HubClient>(client =>
 {
     client.BaseAddress = new Uri(botSettings.HubUrl);
+    client.Timeout = TimeSpan.FromSeconds(360);
     if (!string.IsNullOrEmpty(botSettings.HubApiKey))
         client.DefaultRequestHeaders.Add("X-Api-Key", botSettings.HubApiKey);
 }).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
@@ -58,6 +59,7 @@ builder.Services.AddSingleton<ICommand, NotifyCommand>();
 builder.Services.AddSingleton<ICommand, ApproveCommand>();
 builder.Services.AddSingleton<ICommand, DenyCommand>();
 builder.Services.AddSingleton<ICommand, RegisterCommand>();
+builder.Services.AddSingleton<ICommand, AiAgentCommand>();
 
 builder.Services.AddSingleton<CommandRegistry>(sp =>
     new CommandRegistry(sp.GetServices<ICommand>()));
@@ -72,6 +74,7 @@ builder.Services.AddSingleton<ICallbackHandler, SvcCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, FileCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, ConfirmCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, NotifyCallbackHandler>();
+builder.Services.AddSingleton<ICallbackHandler, AiCallbackHandler>();
 
 builder.Services.AddSingleton<CallbackRegistry>(sp =>
     new CallbackRegistry(sp.GetServices<ICallbackHandler>()));

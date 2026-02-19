@@ -89,7 +89,10 @@ public class CommandsController : ControllerBase
         _logger.LogInformation("Executing {CommandType} on {AgentId} for user {UserId}, RequestId={RequestId}",
             command.Type, agent.AgentId, request.UserId, command.RequestId);
 
-        var timeout = TimeSpan.FromSeconds(_settings.CommandTimeoutSeconds);
+        var timeoutSec = request.CommandType == CommandType.AiChat
+            ? _settings.AiCommandTimeoutSeconds
+            : _settings.CommandTimeoutSeconds;
+        var timeout = TimeSpan.FromSeconds(timeoutSec);
         var responseTask = _pendingCommands.WaitForResponse(command.RequestId, timeout);
 
         await _hubContext.Clients.Client(agent.ConnectionId).ExecuteCommand(command);

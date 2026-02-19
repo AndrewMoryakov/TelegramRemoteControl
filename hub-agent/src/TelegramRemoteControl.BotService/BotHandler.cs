@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
@@ -6,7 +7,9 @@ using Telegram.Bot.Types.Enums;
 using TelegramRemoteControl.BotService.Callbacks;
 using TelegramRemoteControl.BotService.Commands;
 using TelegramRemoteControl.BotService.Menu;
+using TelegramRemoteControl.BotService.Models;
 using TelegramRemoteControl.Shared.Contracts.HubApi;
+using TelegramRemoteControl.Shared.Protocol;
 
 namespace TelegramRemoteControl.BotService;
 
@@ -66,9 +69,28 @@ public class BotHandler
 
         if (isStart)
         {
+            AiSessionManager.End(userId);
             await EnsureAutoSelectAsync(userId);
             await ShowMainMenuAsync(bot, message.Chat.Id, userId, ct);
             return;
+        }
+
+        // AI mode: forward text to agent
+        if (AiSessionManager.IsActive(userId))
+        {
+            if (text == "/exit")
+            {
+                AiSessionManager.End(userId);
+                await ShowMainMenuAsync(bot, message.Chat.Id, userId, ct);
+                return;
+            }
+
+            // Don't intercept /commands — let them dispatch normally
+            if (!text.StartsWith('/'))
+            {
+                await HandleAiMessageAsync(bot, message, userId, ct);
+                return;
+            }
         }
 
         var command = _commands.FindByAlias(commandAlias);
@@ -149,6 +171,137 @@ public class BotHandler
             await TryAnswerCallbackAsync(bot, query.Id, $"❌ {ex.Message}", true, ct);
         }
     }
+
+    private async Task HandleAiMessageAsync(ITelegramBotClient bot, Message message, long userId, CancellationToken ct)
+    {
+        var session = AiSessionManager.Get(userId);
+        if (session == null)
+            return;
+
+        // Check staleness (30 min)
+        if (DateTimeOffset.UtcNow - session.LastMessageAt > TimeSpan.FromMinutes(30))
+        {
+            AiSessionManager.End(userId);
+            await bot.SendMessage(message.Chat.Id,
+                "⏰ AI сессия истекла. Начните новую через /ai",
+                cancellationToken: ct);
+            return;
+        }
+
+        await session.Lock.WaitAsync(ct);
+        try
+        {
+            // Typing indicator
+            await bot.SendChatAction(message.Chat.Id, ChatAction.Typing, cancellationToken: ct);
+
+            var parameters = new Dictionary<string, string>();
+            if (!string.IsNullOrEmpty(session.ClaudeSessionId))
+                parameters["sessionId"] = session.ClaudeSessionId;
+
+            var request = new ExecuteCommandRequest
+            {
+                UserId = userId,
+                CommandType = CommandType.AiChat,
+                Arguments = message.Text,
+                Parameters = parameters
+            };
+
+            var response = await _hubClient.ExecuteCommand(request);
+
+            if (!response.Success)
+            {
+                await bot.SendMessage(message.Chat.Id,
+                    $"❌ {response.ErrorMessage}",
+                    replyMarkup: AiModeKeyboard(),
+                    cancellationToken: ct);
+                return;
+            }
+
+            // Extract session_id from JsonPayload
+            if (!string.IsNullOrEmpty(response.JsonPayload))
+            {
+                try
+                {
+                    var result = JsonSerializer.Deserialize<ClaudeResultDto>(response.JsonPayload);
+                    if (!string.IsNullOrEmpty(result?.SessionId))
+                        session.ClaudeSessionId = result.SessionId;
+                }
+                catch { /* ignore parse errors */ }
+            }
+
+            session.LastMessageAt = DateTimeOffset.UtcNow;
+            session.MessageCount++;
+
+            await SendAiResponseAsync(bot, message.Chat.Id, response.Text ?? "Нет ответа", ct);
+        }
+        finally
+        {
+            session.Lock.Release();
+        }
+    }
+
+    private async Task SendAiResponseAsync(ITelegramBotClient bot, long chatId, string text, CancellationToken ct)
+    {
+        var keyboard = AiModeKeyboard();
+
+        if (text.Length <= 4000)
+        {
+            var parseMode = GetParseMode(text);
+            if (parseMode.HasValue)
+                await bot.SendMessage(chatId, text, parseMode: parseMode.Value, replyMarkup: keyboard, cancellationToken: ct);
+            else
+                await bot.SendMessage(chatId, text, replyMarkup: keyboard, cancellationToken: ct);
+            return;
+        }
+
+        // Split long messages at newlines
+        var chunks = new List<string>();
+        var remaining = text;
+        while (remaining.Length > 0)
+        {
+            if (remaining.Length <= 4000)
+            {
+                chunks.Add(remaining);
+                break;
+            }
+
+            var splitAt = remaining.LastIndexOf('\n', 4000);
+            if (splitAt <= 0)
+                splitAt = 4000;
+
+            chunks.Add(remaining[..splitAt]);
+            remaining = remaining[splitAt..].TrimStart('\n');
+        }
+
+        for (int i = 0; i < chunks.Count; i++)
+        {
+            var isLast = i == chunks.Count - 1;
+            var parseMode = GetParseMode(chunks[i]);
+            if (isLast)
+            {
+                if (parseMode.HasValue)
+                    await bot.SendMessage(chatId, chunks[i], parseMode: parseMode.Value, replyMarkup: keyboard, cancellationToken: ct);
+                else
+                    await bot.SendMessage(chatId, chunks[i], replyMarkup: keyboard, cancellationToken: ct);
+            }
+            else
+            {
+                if (parseMode.HasValue)
+                    await bot.SendMessage(chatId, chunks[i], parseMode: parseMode.Value, cancellationToken: ct);
+                else
+                    await bot.SendMessage(chatId, chunks[i], cancellationToken: ct);
+            }
+        }
+    }
+
+    private static InlineKeyboardMarkup AiModeKeyboard() => new(new[]
+    {
+        new[]
+        {
+            InlineKeyboardButton.WithCallbackData("🛑 Выйти из AI", "ai:exit"),
+            InlineKeyboardButton.WithCallbackData("🔄 Новая сессия", "ai:new")
+        }
+    });
 
     private async Task<bool> EnsureAuthorizedAsync(User user, CancellationToken ct)
     {
