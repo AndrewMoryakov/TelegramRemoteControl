@@ -1,47 +1,48 @@
+using Telegram.Bot.Types.Enums;
+using Telegram.Bot.Types.ReplyMarkups;
 using TelegramRemoteControl.BotService.Menu;
 using TelegramRemoteControl.Shared.Contracts.HubApi;
 using TelegramRemoteControl.Shared.Protocol;
 
 namespace TelegramRemoteControl.BotService.Commands.Impl;
 
-public class CmdCommand : ProxyCommandBase
+public class CmdCommand : ICommand
 {
-    public override string Id => "cmd";
-    public override string[] Aliases => new[] { "/cmd" };
-    public override string Title => "CMD";
-    public override string? Icon => "⚡";
-    public override string? Description => "Выполнить команду CMD";
-    public override string Category => Categories.Shell;
+    public string Id => "cmd";
+    public string[] Aliases => new[] { "/cmd" };
+    public string Title => "CMD";
+    public string? Icon => "⚡";
+    public string? Description => "CMD: режим или разовая команда";
+    public string Category => Categories.Shell;
 
-    protected override CommandType AgentCommandType => CommandType.Cmd;
-
-    protected override bool ValidateArguments(CommandContext ctx, out string? errorMessage)
+    public async Task ExecuteAsync(CommandContext ctx)
     {
         if (string.IsNullOrWhiteSpace(ctx.Arguments))
         {
-            errorMessage = "⚠️ Укажите команду: `/cmd <команда>`\n\nПример: `/cmd dir`";
-            return false;
-        }
-
-        errorMessage = null;
-        return true;
-    }
-
-    protected override async Task RenderResponse(CommandContext ctx, ExecuteCommandResponse response)
-    {
-        if (response.Type != ResponseType.Text)
-        {
-            await base.RenderResponse(ctx, response);
+            ShellSessionManager.Start(ctx.UserId, ShellType.Cmd);
+            await ctx.Bot.SendMessage(ctx.ChatId,
+                "⚡ *CMD режим активирован*\n\n" +
+                "Всё, что вы напишете, будет выполнено в CMD на удалённом ПК.\n\n" +
+                "Для выхода нажмите кнопку или отправьте /exit",
+                parseMode: ParseMode.Markdown,
+                replyMarkup: ShellUi.ModeKeyboard("CMD"),
+                cancellationToken: ctx.CancellationToken);
             return;
         }
 
-        await ctx.ReplyWithBack(WrapCode(response.Text ?? "Нет данных"));
-    }
+        var response = await ctx.Hub.ExecuteCommand(new ExecuteCommandRequest
+        {
+            UserId      = ctx.UserId,
+            CommandType = CommandType.Cmd,
+            Arguments   = ctx.Arguments
+        });
 
-    private static string WrapCode(string text)
-    {
-        return text.Contains("```", StringComparison.Ordinal)
-            ? text
-            : $"```\n{text}\n```";
+        if (!response.Success)
+        {
+            await ctx.ReplyWithMenu($"❌ {response.ErrorMessage}");
+            return;
+        }
+
+        await ctx.ReplyWithBack(ShellUi.WrapCode(response.Text ?? "Нет данных"));
     }
 }

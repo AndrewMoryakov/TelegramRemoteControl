@@ -75,6 +75,23 @@ public class BotHandler
             return;
         }
 
+        // Shell mode: forward text to CMD or PowerShell
+        if (ShellSessionManager.IsActive(userId))
+        {
+            if (text == "/exit")
+            {
+                ShellSessionManager.End(userId);
+                await ShowMainMenuAsync(bot, message.Chat.Id, userId, ct);
+                return;
+            }
+
+            if (!text.StartsWith('/'))
+            {
+                await HandleShellMessageAsync(bot, message, userId, ct);
+                return;
+            }
+        }
+
         // Window type mode: waiting for text to send to a window
         if (WindowTypeSession.IsActive(userId))
         {
@@ -187,6 +204,50 @@ public class BotHandler
             _logger.LogError(ex, "Error handling callback {Data}", query.Data);
             await TryAnswerCallbackAsync(bot, query.Id, $"❌ {ex.Message}", true, ct);
         }
+    }
+
+    private async Task HandleShellMessageAsync(ITelegramBotClient bot, Message message, long userId, CancellationToken ct)
+    {
+        var session = ShellSessionManager.Get(userId);
+        if (session == null)
+            return;
+
+        await bot.SendChatAction(message.Chat.Id, ChatAction.Typing, cancellationToken: ct);
+
+        var commandType = session.Type == ShellType.Cmd
+            ? CommandType.Cmd
+            : CommandType.PowerShell;
+
+        var response = await _hubClient.ExecuteCommand(new Shared.Contracts.HubApi.ExecuteCommandRequest
+        {
+            UserId      = userId,
+            CommandType = commandType,
+            Arguments   = message.Text
+        });
+
+        var shellLabel = session.Type == ShellType.Cmd ? "CMD" : "PowerShell";
+        var keyboard   = ShellUi.ModeKeyboard(shellLabel);
+
+        string replyText;
+        if (!response.Success)
+            replyText = $"❌ {response.ErrorMessage}";
+        else
+            replyText = ShellUi.WrapCode(response.Text ?? "(нет вывода)");
+
+        // Truncate if needed, keeping markdown valid
+        if (replyText.Length > 4000)
+            replyText = replyText[..3950] + "\n...[обрезано]```";
+
+        var parseMode = replyText.Contains("```", StringComparison.Ordinal)
+            ? ParseMode.Markdown
+            : (ParseMode?)null;
+
+        if (parseMode.HasValue)
+            await bot.SendMessage(message.Chat.Id, replyText,
+                parseMode: parseMode.Value, replyMarkup: keyboard, cancellationToken: ct);
+        else
+            await bot.SendMessage(message.Chat.Id, replyText,
+                replyMarkup: keyboard, cancellationToken: ct);
     }
 
     private async Task HandleWindowTypeMessageAsync(ITelegramBotClient bot, Message message, long userId, CancellationToken ct)

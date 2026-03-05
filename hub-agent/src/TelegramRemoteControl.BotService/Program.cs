@@ -77,6 +77,7 @@ builder.Services.AddSingleton<ICallbackHandler, ConfirmCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, NotifyCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, AiCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, AiConfigCallbackHandler>();
+builder.Services.AddSingleton<ICallbackHandler, ShellCallbackHandler>();
 
 builder.Services.AddSingleton<CallbackRegistry>(sp =>
     new CallbackRegistry(sp.GetServices<ICallbackHandler>()));
