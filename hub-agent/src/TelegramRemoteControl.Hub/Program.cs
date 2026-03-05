@@ -1,6 +1,7 @@
 using TelegramRemoteControl.Hub;
 using TelegramRemoteControl.Hub.Data;
 using TelegramRemoteControl.Hub.Hubs;
+using TelegramRemoteControl.Hub.Middleware;
 using TelegramRemoteControl.Hub.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -27,6 +28,12 @@ var app = builder.Build();
 // Initialize database
 var db = app.Services.GetRequiredService<HubDbContext>();
 await db.InitializeAsync();
+
+// Защищаем только /api/*, SignalR (/agent-hub) не трогаем
+app.UseWhen(
+    ctx => ctx.Request.Path.StartsWithSegments("/api"),
+    branch => branch.UseMiddleware<ApiKeyMiddleware>()
+);
 
 app.MapControllers();
 app.MapHub<AgentHub>("/agent-hub");

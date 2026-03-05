@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Options;
 using TelegramRemoteControl.Hub.Data;
 using TelegramRemoteControl.Hub.Services;
 using TelegramRemoteControl.Shared.Contracts;
@@ -12,13 +13,33 @@ public class AgentHub : Hub<IAgentHubClient>, IAgentHubServer
     private readonly PendingCommandStore _pendingCommands;
     private readonly HubDbContext _db;
     private readonly ILogger<AgentHub> _logger;
+    private readonly string _hubApiKey;
 
-    public AgentHub(AgentManager agentManager, PendingCommandStore pendingCommands, HubDbContext db, ILogger<AgentHub> logger)
+    public AgentHub(AgentManager agentManager, PendingCommandStore pendingCommands, HubDbContext db,
+        IOptions<HubSettings> hubSettings, ILogger<AgentHub> logger)
     {
         _agentManager = agentManager;
         _pendingCommands = pendingCommands;
         _db = db;
         _logger = logger;
+        _hubApiKey = hubSettings.Value.ApiKey;
+    }
+
+    public override Task OnConnectedAsync()
+    {
+        if (!string.IsNullOrWhiteSpace(_hubApiKey))
+        {
+            var http = Context.GetHttpContext();
+            var provided = http?.Request.Headers["X-Hub-Key"].ToString() ?? string.Empty;
+            if (provided != _hubApiKey)
+            {
+                _logger.LogWarning("Unauthorized SignalR connection attempt from {IP}",
+                    http?.Connection.RemoteIpAddress);
+                Context.Abort();
+                return Task.CompletedTask;
+            }
+        }
+        return base.OnConnectedAsync();
     }
 
     public async Task RegisterAgent(string credential, AgentInfo info)

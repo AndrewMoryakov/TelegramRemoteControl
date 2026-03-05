@@ -3,6 +3,7 @@ namespace TelegramRemoteControl.Agent;
 public class AgentSettings
 {
     public string HubUrl { get; set; } = "http://localhost:5000";
+    public string HubApiKey { get; set; } = string.Empty;
     public string AgentToken { get; set; } = string.Empty;
     public string PairingCode { get; set; } = string.Empty;
     public string FriendlyName { get; set; } = string.Empty;

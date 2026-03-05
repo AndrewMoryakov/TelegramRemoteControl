@@ -40,7 +40,11 @@ public class AgentService : BackgroundService
         }
 
         _connection = new HubConnectionBuilder()
-            .WithUrl($"{_settings.HubUrl}/agent-hub")
+            .WithUrl($"{_settings.HubUrl}/agent-hub", options =>
+            {
+                if (!string.IsNullOrWhiteSpace(_settings.HubApiKey))
+                    options.Headers.Add("X-Hub-Key", _settings.HubApiKey);
+            })
             .WithAutomaticReconnect(new[] { TimeSpan.Zero, TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(10), TimeSpan.FromSeconds(30) })
             .AddMessagePackProtocol()
             .Build();
