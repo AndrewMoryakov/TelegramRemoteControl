@@ -9,4 +9,5 @@ public class HubSettings
     public string ApiKey { get; set; } = string.Empty;
     public int AgentTimeoutSeconds { get; set; } = 90;
     public int MaxAgentsPerUser { get; set; } = 10;
+    public int PairingCodeTtlDays { get; set; } = 180;
 }

@@ -31,7 +31,7 @@ public class PairController : ControllerBase
         }
 
         var code = GenerateCode(6);
-        var expiresAt = DateTime.UtcNow.AddMinutes(10);
+        var expiresAt = DateTime.UtcNow.AddDays(_settings.PairingCodeTtlDays);
 
         await _db.AddPairingRequest(new PairingRequest
         {
