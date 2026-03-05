@@ -64,6 +64,8 @@ builder.Services.AddSingleton<ICommand, AiAgentCommand>();
 builder.Services.AddSingleton<ICommand, AiConfigCommand>();
 builder.Services.AddSingleton<ICommand, HelpCommand>();
 builder.Services.AddSingleton<ICommand, SysHealthCommand>();
+builder.Services.AddSingleton<ICommand, LogCommand>();
+builder.Services.AddSingleton<ICommand, UsersCommand>();
 
 builder.Services.AddSingleton<CommandRegistry>(sp =>
     new CommandRegistry(sp.GetServices<ICommand>()));
@@ -81,6 +83,7 @@ builder.Services.AddSingleton<ICallbackHandler, NotifyCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, AiCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, AiConfigCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, ShellCallbackHandler>();
+builder.Services.AddSingleton<ICallbackHandler, AdminUserCallbackHandler>();
 
 builder.Services.AddSingleton<CallbackRegistry>(sp =>
     new CallbackRegistry(sp.GetServices<ICallbackHandler>()));

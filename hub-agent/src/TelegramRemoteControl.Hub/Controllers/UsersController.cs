@@ -58,4 +58,19 @@ public class UsersController : ControllerBase
         var enabled = await _db.GetUserNotifyStatus(userId);
         return Ok(new UserNotifyStatusResponse { UserId = userId, Enabled = enabled });
     }
+
+    [HttpGet("all")]
+    public async Task<ActionResult<List<UserDto>>> GetAllUsers()
+    {
+        var users = await _db.GetAllUsersAsync();
+        return Ok(users.Select(u => new UserDto
+        {
+            UserId = u.UserId,
+            Username = u.Username,
+            FirstName = u.FirstName,
+            FirstSeen = u.FirstSeen,
+            LastSeen = u.LastSeen,
+            IsAuthorized = u.IsAuthorized
+        }).ToList());
+    }
 }

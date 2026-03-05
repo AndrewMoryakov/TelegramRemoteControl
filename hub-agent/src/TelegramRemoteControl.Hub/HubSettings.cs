@@ -10,6 +10,7 @@ public class HubSettings
     public int AgentTimeoutSeconds { get; set; } = 90;
     public int MaxAgentsPerUser { get; set; } = 10;
     public int PairingCodeTtlDays { get; set; } = 180;
+    public int AgentTokenTtlDays { get; set; } = 0; // 0 = no expiry
     public int RateLimitRequests { get; set; } = 60;
     public int RateLimitWindowSeconds { get; set; } = 60;
 }

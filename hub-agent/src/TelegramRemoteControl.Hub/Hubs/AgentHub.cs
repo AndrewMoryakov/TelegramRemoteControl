@@ -14,6 +14,7 @@ public class AgentHub : Hub<IAgentHubClient>, IAgentHubServer
     private readonly HubDbContext _db;
     private readonly ILogger<AgentHub> _logger;
     private readonly string _hubApiKey;
+    private readonly int _agentTokenTtlDays;
 
     public AgentHub(AgentManager agentManager, PendingCommandStore pendingCommands, HubDbContext db,
         IOptions<HubSettings> hubSettings, ILogger<AgentHub> logger)
@@ -23,6 +24,7 @@ public class AgentHub : Hub<IAgentHubClient>, IAgentHubServer
         _db = db;
         _logger = logger;
         _hubApiKey = hubSettings.Value.ApiKey;
+        _agentTokenTtlDays = hubSettings.Value.AgentTokenTtlDays;
     }
 
     public override Task OnConnectedAsync()
@@ -48,7 +50,18 @@ public class AgentHub : Hub<IAgentHubClient>, IAgentHubServer
         var registration = await _db.GetAgentByToken(credential);
         if (registration != null)
         {
+            // TTL check
+            if (_agentTokenTtlDays > 0 && registration.LastSeenAt.HasValue &&
+                (DateTime.UtcNow - registration.LastSeenAt.Value).TotalDays > _agentTokenTtlDays)
+            {
+                _logger.LogWarning("Agent token expired: {AgentId}, last seen {LastSeen}",
+                    registration.AgentId, registration.LastSeenAt);
+                Context.Abort();
+                return;
+            }
+
             _agentManager.SetConnected(registration.AgentId, Context.ConnectionId, info, registration.OwnerUserId);
+            _ = _db.UpdateAgentLastSeenAsync(registration.AgentId);
             _logger.LogInformation("Agent authenticated by token: {AgentId} ({MachineName})",
                 registration.AgentId, info.MachineName);
             return;
@@ -111,6 +124,7 @@ public class AgentHub : Hub<IAgentHubClient>, IAgentHubServer
         if (agentId != null)
         {
             _agentManager.UpdateHeartbeat(agentId, info);
+            _ = _db.UpdateAgentLastSeenAsync(agentId);
         }
         return Task.CompletedTask;
     }

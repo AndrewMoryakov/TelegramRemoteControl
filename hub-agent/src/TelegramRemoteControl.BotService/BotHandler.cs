@@ -21,6 +21,7 @@ public class BotHandler
     private readonly MenuBuilder _menu;
     private readonly BotSettings _settings;
     private readonly ILogger<BotHandler> _logger;
+    private readonly HashSet<long> _notifiedAbout = new();
 
     public BotHandler(CommandRegistry commands, CallbackRegistry callbacks, HubClient hubClient,
         MenuBuilder menu, IOptions<BotSettings> settings, ILogger<BotHandler> logger)
@@ -64,6 +65,7 @@ public class BotHandler
                     parseMode: ParseMode.Markdown,
                     cancellationToken: ct);
             }
+            await NotifyAdminsAboutNewUserAsync(bot, message.From, ct);
             return;
         }
 
@@ -438,6 +440,42 @@ public class BotHandler
         }
     });
 
+    private async Task NotifyAdminsAboutNewUserAsync(ITelegramBotClient bot, User user, CancellationToken ct)
+    {
+        if (_settings.AuthorizedUsers.Length == 0) return;
+        lock (_notifiedAbout)
+        {
+            if (!_notifiedAbout.Add(user.Id)) return; // already notified
+        }
+
+        var name = string.IsNullOrWhiteSpace(user.FirstName) ? "—" : user.FirstName;
+        var username = user.Username != null ? $"@{user.Username}" : "нет";
+        var text = $"👤 *Новый запрос доступа*\n\nID: `{user.Id}`\nИмя: {name}\nUsername: {username}";
+        var keyboard = new Telegram.Bot.Types.ReplyMarkups.InlineKeyboardMarkup(new[]
+        {
+            new[]
+            {
+                Telegram.Bot.Types.ReplyMarkups.InlineKeyboardButton.WithCallbackData("✅ Одобрить", $"admin:approve:{user.Id}"),
+                Telegram.Bot.Types.ReplyMarkups.InlineKeyboardButton.WithCallbackData("❌ Отклонить", $"admin:deny:{user.Id}")
+            }
+        });
+
+        foreach (var adminId in _settings.AuthorizedUsers)
+        {
+            try
+            {
+                await bot.SendMessage(adminId, text,
+                    parseMode: ParseMode.Markdown,
+                    replyMarkup: keyboard,
+                    cancellationToken: ct);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to notify admin {AdminId} about new user {UserId}", adminId, user.Id);
+            }
+        }
+    }
+
     private async Task<bool> EnsureAuthorizedAsync(User user, CancellationToken ct)
     {
         try
@@ -458,7 +496,7 @@ public class BotHandler
                 Username = user.Username,
                 FirstName = user.FirstName
             });
-            return seen?.IsAuthorized ?? true;
+            return seen?.IsAuthorized ?? false; // fail-closed: if Hub unreachable, deny access
         }
         catch (Exception ex)
         {

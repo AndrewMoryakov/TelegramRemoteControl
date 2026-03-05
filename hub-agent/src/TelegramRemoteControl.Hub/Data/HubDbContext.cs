@@ -34,7 +34,8 @@ public class HubDbContext
                 OwnerUserId INTEGER NOT NULL,
                 MachineName TEXT NOT NULL,
                 FriendlyName TEXT,
-                RegisteredAt TEXT NOT NULL
+                RegisteredAt TEXT NOT NULL,
+                LastSeenAt TEXT
             );
 
             CREATE TABLE IF NOT EXISTS PairingRequests (
@@ -75,6 +76,7 @@ public class HubDbContext
             """;
         await cmd.ExecuteNonQueryAsync();
 
+        await EnsureAgentsColumnsAsync(conn);
         await EnsureUsersColumnsAsync(conn);
         _logger.LogInformation("Database initialized");
     }
@@ -87,7 +89,7 @@ public class HubDbContext
         await conn.OpenAsync();
 
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT AgentId, AgentToken, OwnerUserId, MachineName, FriendlyName, RegisteredAt FROM Agents WHERE AgentToken = @token";
+        cmd.CommandText = "SELECT AgentId, AgentToken, OwnerUserId, MachineName, FriendlyName, RegisteredAt, LastSeenAt FROM Agents WHERE AgentToken = @token";
         cmd.Parameters.AddWithValue("@token", token);
 
         await using var reader = await cmd.ExecuteReaderAsync();
@@ -103,7 +105,7 @@ public class HubDbContext
         await conn.OpenAsync();
 
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT AgentId, AgentToken, OwnerUserId, MachineName, FriendlyName, RegisteredAt FROM Agents WHERE AgentId = @id";
+        cmd.CommandText = "SELECT AgentId, AgentToken, OwnerUserId, MachineName, FriendlyName, RegisteredAt, LastSeenAt FROM Agents WHERE AgentId = @id";
         cmd.Parameters.AddWithValue("@id", agentId);
 
         await using var reader = await cmd.ExecuteReaderAsync();
@@ -119,7 +121,7 @@ public class HubDbContext
         await conn.OpenAsync();
 
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT AgentId, AgentToken, OwnerUserId, MachineName, FriendlyName, RegisteredAt FROM Agents WHERE OwnerUserId = @userId";
+        cmd.CommandText = "SELECT AgentId, AgentToken, OwnerUserId, MachineName, FriendlyName, RegisteredAt, LastSeenAt FROM Agents WHERE OwnerUserId = @userId";
         cmd.Parameters.AddWithValue("@userId", userId);
 
         var result = new List<AgentRegistration>();
@@ -310,6 +312,57 @@ public class HubDbContext
         return result == null || result == DBNull.Value ? null : result.ToString();
     }
 
+    public async Task UpdateAgentLastSeenAsync(string agentId)
+    {
+        await using var conn = new SqliteConnection(_connectionString);
+        await conn.OpenAsync();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "UPDATE Agents SET LastSeenAt = @now WHERE AgentId = @id";
+        cmd.Parameters.AddWithValue("@now", DateTime.UtcNow.ToString("O"));
+        cmd.Parameters.AddWithValue("@id", agentId);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    public async Task<List<UserRecord>> GetAllUsersAsync()
+    {
+        await using var conn = new SqliteConnection(_connectionString);
+        await conn.OpenAsync();
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT UserId, Username, FirstName, FirstSeen, LastSeen, IsAuthorized FROM Users ORDER BY LastSeen DESC";
+        var result = new List<UserRecord>();
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            result.Add(new UserRecord
+            {
+                UserId = reader.GetInt64(0),
+                Username = reader.IsDBNull(1) ? null : reader.GetString(1),
+                FirstName = reader.IsDBNull(2) ? null : reader.GetString(2),
+                FirstSeen = DateTime.Parse(reader.GetString(3)),
+                LastSeen = DateTime.Parse(reader.GetString(4)),
+                IsAuthorized = reader.GetInt32(5) != 0
+            });
+        }
+        return result;
+    }
+
+    private static async Task EnsureAgentsColumnsAsync(SqliteConnection conn)
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pragma = conn.CreateCommand();
+        pragma.CommandText = "PRAGMA table_info(Agents)";
+        await using var reader = await pragma.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+            columns.Add(reader.GetString(1));
+
+        if (!columns.Contains("LastSeenAt"))
+        {
+            var alter = conn.CreateCommand();
+            alter.CommandText = "ALTER TABLE Agents ADD COLUMN LastSeenAt TEXT";
+            await alter.ExecuteNonQueryAsync();
+        }
+    }
+
     private static async Task EnsureUsersColumnsAsync(SqliteConnection conn)
     {
         var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -464,7 +517,18 @@ public class HubDbContext
             OwnerUserId = reader.GetInt64(2),
             MachineName = reader.GetString(3),
             FriendlyName = reader.IsDBNull(4) ? null : reader.GetString(4),
-            RegisteredAt = DateTime.Parse(reader.GetString(5))
+            RegisteredAt = DateTime.Parse(reader.GetString(5)),
+            LastSeenAt = reader.FieldCount > 6 && !reader.IsDBNull(6) ? DateTime.Parse(reader.GetString(6)) : null
         };
     }
+}
+
+public class UserRecord
+{
+    public long UserId { get; set; }
+    public string? Username { get; set; }
+    public string? FirstName { get; set; }
+    public DateTime FirstSeen { get; set; }
+    public DateTime LastSeen { get; set; }
+    public bool IsAuthorized { get; set; }
 }

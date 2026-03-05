@@ -8,4 +8,5 @@ public class AgentRegistration
     public string MachineName { get; set; } = string.Empty;
     public string? FriendlyName { get; set; }
     public DateTime RegisteredAt { get; set; }
+    public DateTime? LastSeenAt { get; set; }
 }

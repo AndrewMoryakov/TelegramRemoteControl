@@ -120,6 +120,19 @@ public class HubClient
         }
     }
 
+    public async Task<List<UserDto>> GetAllUsers()
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<UserDto>>("/api/users/all") ?? new List<UserDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get all users");
+            return new List<UserDto>();
+        }
+    }
+
     public async Task<bool> IsHubAlive()
     {
         try
