@@ -1,3 +1,5 @@
+using Telegram.Bot;
+
 namespace TelegramRemoteControl.BotService.Callbacks.Impl;
 
 public class ShellCallbackHandler : ICallbackHandler
