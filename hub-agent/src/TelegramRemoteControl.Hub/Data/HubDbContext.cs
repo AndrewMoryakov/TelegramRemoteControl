@@ -55,6 +55,20 @@ public class HubDbContext
                 AgentId TEXT NOT NULL,
                 UpdatedAt TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS AuditLog (
+                Id INTEGER PRIMARY KEY AUTOINCREMENT,
+                Timestamp TEXT NOT NULL,
+                UserId INTEGER NOT NULL,
+                AgentId TEXT NOT NULL,
+                CommandType TEXT NOT NULL,
+                Arguments TEXT,
+                Success INTEGER NOT NULL,
+                DurationMs INTEGER NOT NULL
+            );
+
+            CREATE INDEX IF NOT EXISTS IX_AuditLog_Timestamp ON AuditLog(Timestamp);
+            CREATE INDEX IF NOT EXISTS IX_AuditLog_UserId ON AuditLog(UserId);
             """;
         await cmd.ExecuteNonQueryAsync();
 
@@ -361,6 +375,36 @@ public class HubDbContext
         cmd.Parameters.AddWithValue("@code", code);
 
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    // --- Audit log ---
+
+    public async Task AddAuditLog(long userId, string agentId, string commandType, string? arguments, bool success, long durationMs)
+    {
+        try
+        {
+            await using var conn = new SqliteConnection(_connectionString);
+            await conn.OpenAsync();
+
+            var cmd = conn.CreateCommand();
+            cmd.CommandText = """
+                INSERT INTO AuditLog (Timestamp, UserId, AgentId, CommandType, Arguments, Success, DurationMs)
+                VALUES (@ts, @userId, @agentId, @type, @args, @success, @duration)
+                """;
+            cmd.Parameters.AddWithValue("@ts", DateTime.UtcNow.ToString("O"));
+            cmd.Parameters.AddWithValue("@userId", userId);
+            cmd.Parameters.AddWithValue("@agentId", agentId);
+            cmd.Parameters.AddWithValue("@type", commandType);
+            cmd.Parameters.AddWithValue("@args", arguments != null ? (object)arguments[..Math.Min(500, arguments.Length)] : DBNull.Value);
+            cmd.Parameters.AddWithValue("@success", success ? 1 : 0);
+            cmd.Parameters.AddWithValue("@duration", durationMs);
+
+            await cmd.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to write audit log");
+        }
     }
 
     private static AgentRegistration ReadAgent(SqliteDataReader reader)

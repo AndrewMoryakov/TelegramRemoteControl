@@ -95,9 +95,13 @@ public class CommandsController : ControllerBase
         var timeout = TimeSpan.FromSeconds(timeoutSec);
         var responseTask = _pendingCommands.WaitForResponse(command.RequestId, timeout);
 
+        var sw = System.Diagnostics.Stopwatch.StartNew();
         await _hubContext.Clients.Client(agent.ConnectionId).ExecuteCommand(command);
-
         var response = await responseTask;
+        sw.Stop();
+
+        _ = _db.AddAuditLog(request.UserId, agent.AgentId, command.Type.ToString(),
+            command.Arguments, response.Success, sw.ElapsedMilliseconds);
 
         return Ok(new ExecuteCommandResponse
         {
