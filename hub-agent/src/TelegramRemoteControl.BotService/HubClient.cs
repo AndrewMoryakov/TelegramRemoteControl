@@ -93,6 +93,46 @@ public class HubClient
         resp.EnsureSuccessStatusCode();
     }
 
+    public async Task<SystemHealthResponse?> GetSystemHealth()
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<SystemHealthResponse>("/api/admin/health");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get system health");
+            return null;
+        }
+    }
+
+    public async Task<List<AuditEntryDto>> GetRecentCommands(int limit = 10)
+    {
+        try
+        {
+            return await _http.GetFromJsonAsync<List<AuditEntryDto>>($"/api/admin/recent-commands?limit={limit}")
+                   ?? new List<AuditEntryDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to get recent commands");
+            return new List<AuditEntryDto>();
+        }
+    }
+
+    public async Task<bool> IsHubAlive()
+    {
+        try
+        {
+            var resp = await _http.GetAsync("/");
+            return resp.IsSuccessStatusCode;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public async Task<DeviceDto?> GetSelectedDevice(long userId)
     {
         var resp = await _http.GetAsync($"/api/devices/selected?userId={userId}");

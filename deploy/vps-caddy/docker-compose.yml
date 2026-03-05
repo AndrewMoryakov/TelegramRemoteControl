@@ -12,13 +12,22 @@ services:
       HubSettings__AgentTimeoutSeconds: ${HUB_AGENT_TIMEOUT_SECONDS:-90}
     volumes:
       - hub-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
 
   bot:
     build:
       context: ../..
       dockerfile: docker/Dockerfile.bot
     depends_on:
-      - hub
+      hub:
+        condition: service_healthy
+    restart: unless-stopped
     environment:
       BotSettings__Token: ${BOT_TOKEN}
       BotSettings__HubUrl: http://hub:5000

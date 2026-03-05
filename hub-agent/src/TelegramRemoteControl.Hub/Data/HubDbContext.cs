@@ -8,12 +8,15 @@ public class HubDbContext
     private readonly string _connectionString;
     private readonly ILogger<HubDbContext> _logger;
 
+    public string DbPath { get; }
+
     public HubDbContext(IOptions<HubSettings> settings, ILogger<HubDbContext> logger)
     {
         var dbPath = settings.Value.DatabasePath;
         if (string.IsNullOrEmpty(dbPath))
             dbPath = "hub.db";
 
+        DbPath = dbPath;
         _connectionString = $"Data Source={dbPath}";
         _logger = logger;
     }
@@ -375,6 +378,51 @@ public class HubDbContext
         cmd.Parameters.AddWithValue("@code", code);
 
         await cmd.ExecuteNonQueryAsync();
+    }
+
+    // --- Stats ---
+
+    public async Task<(int totalAgents, int commandsToday)> GetStatsAsync()
+    {
+        await using var conn = new SqliteConnection(_connectionString);
+        await conn.OpenAsync();
+
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT
+                (SELECT COUNT(*) FROM Agents) AS TotalAgents,
+                (SELECT COUNT(*) FROM AuditLog WHERE date(Timestamp) = date('now')) AS CommandsToday
+            """;
+
+        await using var reader = await cmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
+            return (reader.GetInt32(0), reader.GetInt32(1));
+
+        return (0, 0);
+    }
+
+    public async Task<List<(DateTime Timestamp, string CommandType, string AgentId, bool Success, long DurationMs)>> GetRecentCommandsAsync(int limit = 20)
+    {
+        await using var conn = new SqliteConnection(_connectionString);
+        await conn.OpenAsync();
+
+        var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT Timestamp, CommandType, AgentId, Success, DurationMs FROM AuditLog ORDER BY Id DESC LIMIT @limit";
+        cmd.Parameters.AddWithValue("@limit", limit);
+
+        var result = new List<(DateTime, string, string, bool, long)>();
+        await using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            result.Add((
+                DateTime.Parse(reader.GetString(0)),
+                reader.GetString(1),
+                reader.GetString(2),
+                reader.GetInt32(3) != 0,
+                reader.GetInt64(4)
+            ));
+        }
+        return result;
     }
 
     // --- Audit log ---

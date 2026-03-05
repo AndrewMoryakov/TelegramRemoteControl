@@ -21,7 +21,7 @@ public class AddPcCommand : ICommand
             await ctx.Bot.SendMessage(ctx.ChatId,
                 $"🔗 Код привязки: `{result.Code}`\n\n" +
                 "Введите этот код в `appsettings.json` агента в поле `PairingCode`.\n" +
-                "Код действителен 10 минут.",
+                "Код действителен 6 месяцев.",
                 parseMode: ParseMode.Markdown,
                 cancellationToken: ctx.CancellationToken);
         }

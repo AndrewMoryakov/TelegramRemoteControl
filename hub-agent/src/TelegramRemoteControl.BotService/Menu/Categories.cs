@@ -11,6 +11,7 @@ public static class Categories
     public const string Shell = "shell";
     public const string Control = "control";
     public const string System = "system";
+    public const string Admin = "admin";
 
     public static string GetTitle(string category) => category switch
     {
@@ -20,9 +21,10 @@ public static class Categories
         Shell => "⚡ Команды",
         Control => "🔧 Управление",
         System => "⚙️ Система",
+        Admin => "🔐 Админ",
         _ => category
     };
 
     /// <summary>Порядок категорий в меню</summary>
-    public static readonly string[] Order = { Ai, Info, Screen, Shell, Control, System };
+    public static readonly string[] Order = { Ai, Info, Screen, Shell, Control, System, Admin };
 }

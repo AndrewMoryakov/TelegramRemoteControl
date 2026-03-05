@@ -11,4 +11,6 @@ public class BotSettings
     public int FilesSessionTtlMinutes { get; set; } = 2;
     public bool DeviceStatusMonitorEnabled { get; set; } = false;
     public int DeviceStatusMonitorIntervalSeconds { get; set; } = 10;
+    public bool HubHealthMonitorEnabled { get; set; } = true;
+    public int HubHealthMonitorIntervalSeconds { get; set; } = 300;
 }

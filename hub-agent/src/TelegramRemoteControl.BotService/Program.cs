@@ -5,6 +5,7 @@ using TelegramRemoteControl.BotService.Callbacks.Impl;
 using TelegramRemoteControl.BotService.Commands;
 using TelegramRemoteControl.BotService.Commands.Impl;
 using TelegramRemoteControl.BotService.Menu;
+using TelegramRemoteControl.BotService.Services;
 
 var builder = Host.CreateApplicationBuilder(args);
 
@@ -61,6 +62,8 @@ builder.Services.AddSingleton<ICommand, DenyCommand>();
 builder.Services.AddSingleton<ICommand, RegisterCommand>();
 builder.Services.AddSingleton<ICommand, AiAgentCommand>();
 builder.Services.AddSingleton<ICommand, AiConfigCommand>();
+builder.Services.AddSingleton<ICommand, HelpCommand>();
+builder.Services.AddSingleton<ICommand, SysHealthCommand>();
 
 builder.Services.AddSingleton<CommandRegistry>(sp =>
     new CommandRegistry(sp.GetServices<ICommand>()));
@@ -85,6 +88,7 @@ builder.Services.AddSingleton<CallbackRegistry>(sp =>
 builder.Services.AddSingleton<BotHandler>();
 builder.Services.AddHostedService<TelegramBotService>();
 builder.Services.AddHostedService<DeviceStatusMonitor>();
+builder.Services.AddHostedService<HubHealthMonitor>();
 
 var host = builder.Build();
 host.Run();
