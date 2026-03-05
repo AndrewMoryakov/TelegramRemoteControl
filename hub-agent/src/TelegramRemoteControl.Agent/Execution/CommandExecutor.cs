@@ -41,7 +41,7 @@ public class CommandExecutor
             [CommandType.Restart] = new RestartExecutor(),
             [CommandType.Sleep] = new SleepExecutor(),
             [CommandType.Hibernate] = new HibernateExecutor(),
-            [CommandType.AiChat]      = new AiChatExecutor(ai),
+            [CommandType.AiChat]      = new AiChatDispatcher(ai),
             [CommandType.AgentConfig] = new AgentConfigExecutor(ai, settingsPath),
         };
     }

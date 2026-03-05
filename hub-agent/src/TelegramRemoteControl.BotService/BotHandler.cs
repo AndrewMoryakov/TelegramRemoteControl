@@ -75,6 +75,23 @@ public class BotHandler
             return;
         }
 
+        // AI key input mode: waiting for OpenRouter API key
+        if (AiKeyInputSession.IsActive(userId))
+        {
+            if (text == "/cancel")
+            {
+                AiKeyInputSession.End(userId);
+                await bot.SendMessage(message.Chat.Id, "❌ Отменено", cancellationToken: ct);
+                return;
+            }
+
+            if (!text.StartsWith('/'))
+            {
+                await HandleAiKeyInputAsync(bot, message, userId, ct);
+                return;
+            }
+        }
+
         // Shell mode: forward text to CMD or PowerShell
         if (ShellSessionManager.IsActive(userId))
         {
@@ -204,6 +221,27 @@ public class BotHandler
             _logger.LogError(ex, "Error handling callback {Data}", query.Data);
             await TryAnswerCallbackAsync(bot, query.Id, $"❌ {ex.Message}", true, ct);
         }
+    }
+
+    private async Task HandleAiKeyInputAsync(ITelegramBotClient bot, Message message, long userId, CancellationToken ct)
+    {
+        AiKeyInputSession.End(userId);
+
+        // Delete the message containing the key for security
+        try { await bot.DeleteMessage(message.Chat.Id, message.MessageId, cancellationToken: ct); } catch { }
+
+        var response = await _hubClient.ExecuteCommand(new Shared.Contracts.HubApi.ExecuteCommandRequest
+        {
+            UserId      = userId,
+            CommandType = Shared.Protocol.CommandType.AgentConfig,
+            Arguments   = $"set:openrouterkey:{message.Text}"
+        });
+
+        var reply = response.Success
+            ? "✅ API ключ сохранён. Теперь выберите модель через /aiconfig → 📋 Выбрать модель"
+            : $"❌ {response.ErrorMessage}";
+
+        await bot.SendMessage(message.Chat.Id, reply, cancellationToken: ct);
     }
 
     private async Task HandleShellMessageAsync(ITelegramBotClient bot, Message message, long userId, CancellationToken ct)
