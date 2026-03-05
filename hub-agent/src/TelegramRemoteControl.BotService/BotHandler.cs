@@ -75,6 +75,23 @@ public class BotHandler
             return;
         }
 
+        // Window type mode: waiting for text to send to a window
+        if (WindowTypeSession.IsActive(userId))
+        {
+            if (text == "/cancel")
+            {
+                WindowTypeSession.End(userId);
+                await bot.SendMessage(message.Chat.Id, "❌ Отменено", cancellationToken: ct);
+                return;
+            }
+
+            if (!text.StartsWith('/'))
+            {
+                await HandleWindowTypeMessageAsync(bot, message, userId, ct);
+                return;
+            }
+        }
+
         // AI mode: forward text to agent
         if (AiSessionManager.IsActive(userId))
         {
@@ -170,6 +187,25 @@ public class BotHandler
             _logger.LogError(ex, "Error handling callback {Data}", query.Data);
             await TryAnswerCallbackAsync(bot, query.Id, $"❌ {ex.Message}", true, ct);
         }
+    }
+
+    private async Task HandleWindowTypeMessageAsync(ITelegramBotClient bot, Message message, long userId, CancellationToken ct)
+    {
+        var session = WindowTypeSession.Get(userId);
+        if (session == null)
+            return;
+
+        WindowTypeSession.End(userId);
+
+        var response = await _hubClient.ExecuteCommand(new Shared.Contracts.HubApi.ExecuteCommandRequest
+        {
+            UserId = userId,
+            CommandType = Shared.Protocol.CommandType.WindowAction,
+            Arguments = $"type:{session.Hwnd}:{message.Text}"
+        });
+
+        var reply = response.Success ? "✅ Текст отправлен" : $"❌ {response.ErrorMessage}";
+        await bot.SendMessage(message.Chat.Id, reply, cancellationToken: ct);
     }
 
     private async Task HandleAiMessageAsync(ITelegramBotClient bot, Message message, long userId, CancellationToken ct)

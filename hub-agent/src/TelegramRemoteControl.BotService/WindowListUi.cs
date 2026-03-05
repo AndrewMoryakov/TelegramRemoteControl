@@ -66,21 +66,71 @@ internal static class WindowListUi
 
         var keyboard = new InlineKeyboardMarkup(new[]
         {
-            new[] { InlineKeyboardButton.WithCallbackData("📸 Скриншот", $"win:ss:{win.Hwnd}") },
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("➖ Свернуть", $"win:min:{win.Hwnd}"),
-                InlineKeyboardButton.WithCallbackData("➕ Развернуть", $"win:max:{win.Hwnd}")
+                InlineKeyboardButton.WithCallbackData("📸 Скриншот", $"win:ss:{win.Hwnd}"),
+                InlineKeyboardButton.WithCallbackData("🎯 Фокус", $"win:focus:{win.Hwnd}")
             },
             new[]
             {
-                InlineKeyboardButton.WithCallbackData("🔄 Восстановить", $"win:restore:{win.Hwnd}"),
+                InlineKeyboardButton.WithCallbackData("➖ Свернуть", $"win:min:{win.Hwnd}"),
+                InlineKeyboardButton.WithCallbackData("➕ Развернуть", $"win:max:{win.Hwnd}"),
+                InlineKeyboardButton.WithCallbackData("🔄 Восстановить", $"win:restore:{win.Hwnd}")
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("⌨️ Ввести текст", $"win:type:{win.Hwnd}"),
+                InlineKeyboardButton.WithCallbackData("🎹 Клавиши", $"win:keys:{win.Hwnd}")
+            },
+            new[]
+            {
                 InlineKeyboardButton.WithCallbackData("❌ Закрыть", $"win:close:{win.Hwnd}")
             },
             new[] { InlineKeyboardButton.WithCallbackData("◀️ К списку", "win:list") }
         });
 
         return (text, keyboard);
+    }
+
+    public static InlineKeyboardMarkup BuildKeys(long hwnd)
+    {
+        return new InlineKeyboardMarkup(new[]
+        {
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("⏎ Enter",    $"win:key:{hwnd}:Enter"),
+                InlineKeyboardButton.WithCallbackData("⎋ Esc",      $"win:key:{hwnd}:Escape"),
+                InlineKeyboardButton.WithCallbackData("⌫ Backspace",$"win:key:{hwnd}:Backspace"),
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("🗑 Delete",  $"win:key:{hwnd}:Delete"),
+                InlineKeyboardButton.WithCallbackData("⇥ Tab",      $"win:key:{hwnd}:Tab"),
+                InlineKeyboardButton.WithCallbackData("␣ Space",    $"win:key:{hwnd}:Space"),
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("↑", $"win:key:{hwnd}:Up"),
+                InlineKeyboardButton.WithCallbackData("↓", $"win:key:{hwnd}:Down"),
+                InlineKeyboardButton.WithCallbackData("←", $"win:key:{hwnd}:Left"),
+                InlineKeyboardButton.WithCallbackData("→", $"win:key:{hwnd}:Right"),
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("Home",  $"win:key:{hwnd}:Home"),
+                InlineKeyboardButton.WithCallbackData("End",   $"win:key:{hwnd}:End"),
+                InlineKeyboardButton.WithCallbackData("PgUp",  $"win:key:{hwnd}:PageUp"),
+                InlineKeyboardButton.WithCallbackData("PgDn",  $"win:key:{hwnd}:PageDown"),
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("F5 🔄", $"win:key:{hwnd}:F5"),
+            },
+            new[]
+            {
+                InlineKeyboardButton.WithCallbackData("◀️ К окну", $"win:info:{hwnd}"),
+            }
+        });
     }
 
     private static string EscapeMarkdown(string text) =>

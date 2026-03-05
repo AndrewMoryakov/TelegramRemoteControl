@@ -29,6 +29,9 @@ public class WinCallbackHandler : ICallbackHandler
             case "ss":
                 await HandleScreenshotAsync(ctx, parts);
                 break;
+            case "focus":
+                await HandleActionAsync(ctx, "focus", parts);
+                break;
             case "min":
             case "max":
             case "restore":
@@ -37,6 +40,15 @@ public class WinCallbackHandler : ICallbackHandler
                 break;
             case "minall":
                 await HandleMinAllAsync(ctx);
+                break;
+            case "type":
+                await HandleTypePromptAsync(ctx, parts);
+                break;
+            case "keys":
+                await HandleKeysMenuAsync(ctx, parts);
+                break;
+            case "key":
+                await HandleKeyAsync(ctx, parts);
                 break;
         }
     }
@@ -144,7 +156,6 @@ public class WinCallbackHandler : ICallbackHandler
             return;
         }
 
-        // After close -> refresh list, otherwise refresh info
         if (action == "close")
             await HandleListAsync(ctx);
         else
@@ -161,6 +172,54 @@ public class WinCallbackHandler : ICallbackHandler
         });
 
         await TryAnswerAsync(ctx, response.Success ? "✅ Все окна свёрнуты" : response.ErrorMessage);
+    }
+
+    private async Task HandleTypePromptAsync(CallbackContext ctx, string[] parts)
+    {
+        if (parts.Length < 3 || !long.TryParse(parts[2], out var hwnd))
+            return;
+
+        WindowTypeSession.Start(ctx.UserId, hwnd, ctx.ChatId);
+
+        await TryAnswerAsync(ctx, null);
+        await ctx.Bot.SendMessage(ctx.ChatId,
+            "✏️ Введите текст для отправки в окно:\n\n_Отправьте сообщение или_ /cancel _для отмены_",
+            parseMode: ParseMode.Markdown,
+            cancellationToken: ctx.CancellationToken);
+    }
+
+    private async Task HandleKeysMenuAsync(CallbackContext ctx, string[] parts)
+    {
+        if (parts.Length < 3 || !long.TryParse(parts[2], out var hwnd))
+            return;
+
+        var win = await FindWindowAsync(ctx, hwnd);
+        var title = win != null
+            ? (win.Title.Length > 25 ? win.Title[..22] + "..." : win.Title)
+            : hwnd.ToString();
+
+        var keyboard = WindowListUi.BuildKeys(hwnd);
+        await EditOrSendAsync(ctx, $"🎹 Клавиши → *{EscapeMarkdown(title)}*", keyboard, ParseMode.Markdown);
+        await TryAnswerAsync(ctx, null);
+    }
+
+    private async Task HandleKeyAsync(CallbackContext ctx, string[] parts)
+    {
+        // parts: ["win", "key", "hwnd", "KeyName"]
+        if (parts.Length < 4 || !long.TryParse(parts[2], out var hwnd))
+            return;
+
+        var keyName = parts[3];
+
+        var response = await ctx.Hub.ExecuteCommand(new ExecuteCommandRequest
+        {
+            UserId = ctx.UserId,
+            CommandType = CommandType.WindowAction,
+            Arguments = $"key:{hwnd}:{keyName}"
+        });
+
+        await TryAnswerAsync(ctx, response.Success ? $"✅ {keyName}" : $"❌ {response.ErrorMessage}");
+        // Stay on the keys keyboard — no page change needed
     }
 
     private async Task<WindowInfo?> FindWindowAsync(CallbackContext ctx, long hwnd)
@@ -193,49 +252,31 @@ public class WinCallbackHandler : ICallbackHandler
     {
         if (ctx.MessageId.HasValue)
         {
-            if (parseMode.HasValue)
+            try
             {
-                try
-                {
+                if (parseMode.HasValue)
                     await ctx.Bot.EditMessageText(ctx.ChatId, ctx.MessageId.Value, text,
-                        parseMode: parseMode.Value,
-                        replyMarkup: keyboard,
+                        parseMode: parseMode.Value, replyMarkup: keyboard,
                         cancellationToken: ctx.CancellationToken);
-                }
-                catch (Telegram.Bot.Exceptions.ApiRequestException ex) when (ex.Message.Contains("message is not modified", StringComparison.OrdinalIgnoreCase))
-                {
-                    // ignore no-op edits
-                }
+                else
+                    await ctx.Bot.EditMessageText(ctx.ChatId, ctx.MessageId.Value, text,
+                        replyMarkup: keyboard, cancellationToken: ctx.CancellationToken);
             }
-            else
+            catch (Telegram.Bot.Exceptions.ApiRequestException ex)
+                when (ex.Message.Contains("message is not modified", StringComparison.OrdinalIgnoreCase))
             {
-                try
-                {
-                    await ctx.Bot.EditMessageText(ctx.ChatId, ctx.MessageId.Value, text,
-                        replyMarkup: keyboard,
-                        cancellationToken: ctx.CancellationToken);
-                }
-                catch (Telegram.Bot.Exceptions.ApiRequestException ex) when (ex.Message.Contains("message is not modified", StringComparison.OrdinalIgnoreCase))
-                {
-                    // ignore no-op edits
-                }
+                // ignore no-op edits
             }
         }
         else
         {
             if (parseMode.HasValue)
-            {
                 await ctx.Bot.SendMessage(ctx.ChatId, text,
-                    parseMode: parseMode.Value,
-                    replyMarkup: keyboard,
+                    parseMode: parseMode.Value, replyMarkup: keyboard,
                     cancellationToken: ctx.CancellationToken);
-            }
             else
-            {
                 await ctx.Bot.SendMessage(ctx.ChatId, text,
-                    replyMarkup: keyboard,
-                    cancellationToken: ctx.CancellationToken);
-            }
+                    replyMarkup: keyboard, cancellationToken: ctx.CancellationToken);
         }
     }
 
@@ -250,4 +291,7 @@ public class WinCallbackHandler : ICallbackHandler
             // ignore expired callback
         }
     }
+
+    private static string EscapeMarkdown(string text) =>
+        text.Replace("_", "\\_").Replace("*", "\\*").Replace("`", "\\`").Replace("[", "\\[");
 }
