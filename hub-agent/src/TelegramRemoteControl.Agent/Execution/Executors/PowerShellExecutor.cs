@@ -18,9 +18,11 @@ public class PowerShellExecutor : ICommandExecutor
             };
         }
 
+        // -EncodedCommand принимает Base64(UTF-16LE) — исключает shell-escaping и инъекции через метасимволы
+        var encoded = Convert.ToBase64String(Encoding.Unicode.GetBytes(command.Arguments));
         var result = await ShellHelper.RunAsync(
             "powershell.exe",
-            $"-NoProfile -Command {command.Arguments}",
+            $"-NoProfile -NonInteractive -EncodedCommand {encoded}",
             ct,
             Encoding.UTF8);
 

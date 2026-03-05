@@ -1,23 +1,29 @@
 using System.Text;
+using TelegramRemoteControl.Agent.Helpers;
 using TelegramRemoteControl.Shared.Protocol;
-using TelegramRemoteControl.Agent;
 
 namespace TelegramRemoteControl.Agent.Execution.Executors;
 
 public class FilePreviewExecutor : ICommandExecutor
 {
     private readonly AgentSettings _settings;
+    private readonly string? _rootPath;
 
     public FilePreviewExecutor(AgentSettings settings)
     {
         _settings = settings;
+        _rootPath = string.IsNullOrWhiteSpace(settings.FileRootPath) ? null : settings.FileRootPath;
     }
 
     public Task<AgentResponse> ExecuteAsync(AgentCommand command, CancellationToken ct = default)
     {
-        var path = GetPath(command);
-        if (string.IsNullOrWhiteSpace(path))
+        var rawPath = GetPath(command);
+        if (string.IsNullOrWhiteSpace(rawPath))
             return Task.FromResult(Error(command, "Путь не указан"));
+
+        var path = PathValidator.Normalize(rawPath, _rootPath);
+        if (path == null)
+            return Task.FromResult(Error(command, "Недопустимый путь"));
 
         if (Directory.Exists(path))
             return Task.FromResult(Error(command, "Это папка, предпросмотр недоступен"));

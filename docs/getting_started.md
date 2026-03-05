@@ -27,7 +27,7 @@
    ```
    /addpc
    ```
-2. Бот выдаст код привязки (действует 10 минут).
+2. Бот выдаст код привязки (действует 6 месяцев).
 
 ---
 
@@ -45,8 +45,11 @@ CLI попросит:
 
 Можно запускать без интерактива:
 ```
-dotnet run --project hub-agent/src/TelegramRemoteControl.Agent/TelegramRemoteControl.Agent.csproj -- --hub http://<host>:5000 --pair КОД_ИЗ_БОТА --name "Мой ПК"
+dotnet run --project hub-agent/src/TelegramRemoteControl.Agent/TelegramRemoteControl.Agent.csproj -- --hub https://<host> --key ХАБ_АПИ_КЛЮЧ --pair КОД_ИЗ_БОТА --name "Мой ПК"
 ```
+
+> **`--key`** — значение `HubSettings:ApiKey` с Hub-сервера. Обязателен если на Hub задан `HUB_API_KEY`.
+> Без правильного ключа Hub отклонит подключение агента.
 
 После этого запускайте агент обычно:
 ```
@@ -108,7 +111,8 @@ dotnet run --project hub-agent/src/TelegramRemoteControl.Agent/TelegramRemoteCon
 
 ## 8) Частые проблемы
 
-- **Agent не подключается:** проверьте `HubUrl`, порт `5000`, доступность Hub, Tailscale.
+- **Agent не подключается:** проверьте `HubUrl`, доступность Hub, Tailscale/VPN.
+- **Connection closed сразу после подключения:** не задан или неверный `HubApiKey` в `appsettings.json` агента. Узнайте значение `HUB_API_KEY` у администратора Hub и укажите его через `--key` при настройке.
 - **Код привязки просрочен:** выполните `/addpc` заново.
 - **Нет доступа:** ваш ID должен быть одобрен администратором через `/approve <userId>`.
 

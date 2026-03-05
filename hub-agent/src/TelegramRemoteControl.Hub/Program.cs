@@ -1,3 +1,5 @@
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.RateLimiting;
 using TelegramRemoteControl.Hub;
 using TelegramRemoteControl.Hub.Data;
 using TelegramRemoteControl.Hub.Hubs;
@@ -17,6 +19,17 @@ builder.Services.AddControllers();
 
 var hubSettings = builder.Configuration.GetSection("HubSettings").Get<HubSettings>() ?? new HubSettings();
 
+builder.Services.AddRateLimiter(options =>
+{
+    options.AddFixedWindowLimiter("api", o =>
+    {
+        o.PermitLimit = hubSettings.RateLimitRequests;
+        o.Window = TimeSpan.FromSeconds(hubSettings.RateLimitWindowSeconds);
+        o.QueueLimit = 0;
+    });
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
 builder.Services.AddSignalR(options =>
 {
     options.MaximumReceiveMessageSize = hubSettings.MaxMessageSizeBytes;
@@ -35,7 +48,9 @@ app.UseWhen(
     branch => branch.UseMiddleware<ApiKeyMiddleware>()
 );
 
-app.MapControllers();
+app.UseRateLimiter();
+
+app.MapControllers().RequireRateLimiting("api");
 app.MapHub<AgentHub>("/agent-hub");
 app.MapGet("/", () => "TelegramRemoteControl Hub");
 

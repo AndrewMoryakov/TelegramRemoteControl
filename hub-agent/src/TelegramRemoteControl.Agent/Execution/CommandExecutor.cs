@@ -33,7 +33,7 @@ public class CommandExecutor
             [CommandType.Kill] = new KillExecutor(),
             [CommandType.Services] = new ServicesExecutor(),
             [CommandType.ServiceAction] = new ServiceActionExecutor(),
-            [CommandType.FileList] = new FileListExecutor(),
+            [CommandType.FileList] = new FileListExecutor(agentSettings),
             [CommandType.FileDownload] = new FileDownloadExecutor(agentSettings),
             [CommandType.FilePreview] = new FilePreviewExecutor(agentSettings),
             [CommandType.Lock] = new LockExecutor(),

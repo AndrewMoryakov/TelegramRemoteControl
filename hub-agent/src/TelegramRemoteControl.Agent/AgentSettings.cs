@@ -11,4 +11,5 @@ public class AgentSettings
     public long FileMaxDownloadBytes { get; set; } = 45L * 1024 * 1024;
     public int FilePreviewMaxChars { get; set; } = 4000;
     public int FileBinaryProbeBytes { get; set; } = 8000;
+    public string FileRootPath { get; set; } = string.Empty;
 }

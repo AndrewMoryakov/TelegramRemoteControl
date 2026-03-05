@@ -10,11 +10,14 @@ public static class AgentSetupWizard
     {
         var forceSetup = HasArg(args, "--setup");
         var hubArg = GetArgValue(args, "--hub");
+        var keyArg = GetArgValue(args, "--key");
         var pairArg = GetArgValue(args, "--pair");
         var nameArg = GetArgValue(args, "--name");
 
         if (!string.IsNullOrWhiteSpace(hubArg))
             settings.HubUrl = hubArg.Trim();
+        if (!string.IsNullOrWhiteSpace(keyArg))
+            settings.HubApiKey = keyArg.Trim();
         if (!string.IsNullOrWhiteSpace(nameArg))
             settings.FriendlyName = nameArg.Trim();
 
@@ -34,6 +37,7 @@ public static class AgentSetupWizard
 
         var changed = forceSetup ||
                       !string.IsNullOrWhiteSpace(hubArg) ||
+                      !string.IsNullOrWhiteSpace(keyArg) ||
                       !string.IsNullOrWhiteSpace(pairArg) ||
                       !string.IsNullOrWhiteSpace(nameArg) ||
                       (!hasCredential && !Console.IsInputRedirected);
@@ -51,6 +55,11 @@ public static class AgentSetupWizard
         var hub = Console.ReadLine();
         if (!string.IsNullOrWhiteSpace(hub))
             settings.HubUrl = hub.Trim();
+
+        Console.Write($"Hub API key (HubSettings:ApiKey, leave blank if not set) [{MaskKey(settings.HubApiKey)}]: ");
+        var key = Console.ReadLine();
+        if (!string.IsNullOrWhiteSpace(key))
+            settings.HubApiKey = key.Trim();
 
         Console.Write("Pairing code (from /addpc): ");
         var code = Console.ReadLine();
@@ -80,6 +89,7 @@ public static class AgentSetupWizard
 
         var agent = root["Agent"] as JsonObject ?? new JsonObject();
         agent["HubUrl"] = settings.HubUrl;
+        agent["HubApiKey"] = settings.HubApiKey;
         agent["AgentToken"] = settings.AgentToken;
         agent["PairingCode"] = settings.PairingCode;
         agent["FriendlyName"] = settings.FriendlyName;
@@ -88,6 +98,9 @@ public static class AgentSetupWizard
         var options = new JsonSerializerOptions { WriteIndented = true };
         File.WriteAllText(path, root.ToJsonString(options), Encoding.UTF8);
     }
+
+    private static string MaskKey(string key) =>
+        string.IsNullOrWhiteSpace(key) ? "not set" : key[..Math.Min(4, key.Length)] + "****";
 
     private static bool HasArg(string[] args, string name)
     {

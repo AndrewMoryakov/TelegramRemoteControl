@@ -1,26 +1,38 @@
 using System.Text.Json;
+using TelegramRemoteControl.Agent.Helpers;
 using TelegramRemoteControl.Shared.Protocol;
 
 namespace TelegramRemoteControl.Agent.Execution.Executors;
 
 public class FileListExecutor : ICommandExecutor
 {
+    private readonly string? _rootPath;
+
+    public FileListExecutor(AgentSettings settings)
+    {
+        _rootPath = string.IsNullOrWhiteSpace(settings.FileRootPath) ? null : settings.FileRootPath;
+    }
+
     public Task<AgentResponse> ExecuteAsync(AgentCommand command, CancellationToken ct = default)
     {
-        var path = GetPath(command);
+        var rawPath = GetRawPath(command);
 
-        if (string.IsNullOrWhiteSpace(path))
+        if (string.IsNullOrWhiteSpace(rawPath))
         {
-            if (OperatingSystem.IsWindows())
+            if (OperatingSystem.IsWindows() && string.IsNullOrWhiteSpace(_rootPath))
                 return Task.FromResult(ListDrives(command));
 
-            path = Path.GetPathRoot(Environment.CurrentDirectory) ?? "/";
+            rawPath = _rootPath ?? Path.GetPathRoot(Environment.CurrentDirectory) ?? "/";
         }
+
+        var path = PathValidator.Normalize(rawPath, _rootPath);
+        if (path == null)
+            return Task.FromResult(Error(command, "Недопустимый путь"));
 
         return Task.FromResult(ListDirectory(command, path));
     }
 
-    private static string? GetPath(AgentCommand command)
+    private static string? GetRawPath(AgentCommand command)
     {
         if (command.Parameters != null &&
             command.Parameters.TryGetValue("path", out var path) &&
