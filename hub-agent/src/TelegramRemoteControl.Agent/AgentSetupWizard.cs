@@ -56,7 +56,8 @@ public static class AgentSetupWizard
         if (!string.IsNullOrWhiteSpace(hub))
             settings.HubUrl = hub.Trim();
 
-        Console.Write($"Hub API key (HubSettings:ApiKey, leave blank if not set) [{MaskKey(settings.HubApiKey)}]: ");
+        Console.WriteLine("Hub API key — узнайте у администратора Hub (или оставьте пустым, если ключ не настроен).");
+        Console.Write($"Hub API key [{MaskKey(settings.HubApiKey)}]: ");
         var key = Console.ReadLine();
         if (!string.IsNullOrWhiteSpace(key))
             settings.HubApiKey = key.Trim();
