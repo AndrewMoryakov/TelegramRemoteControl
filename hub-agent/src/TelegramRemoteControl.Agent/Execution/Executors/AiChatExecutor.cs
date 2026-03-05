@@ -39,6 +39,8 @@ public class AiChatExecutor : ICommandExecutor
             var args = new StringBuilder();
             args.Append("--print --output-format json");
             args.Append($" --max-turns {_settings.MaxTurns}");
+            if (!string.IsNullOrWhiteSpace(_settings.Model))
+                args.Append($" --model \"{_settings.Model}\"");
 
             // Resume session if sessionId provided
             string? sessionId = null;

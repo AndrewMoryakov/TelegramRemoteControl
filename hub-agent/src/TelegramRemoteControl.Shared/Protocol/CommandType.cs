@@ -39,5 +39,6 @@ public enum CommandType
     Ping,
 
     // AI
-    AiChat
+    AiChat,
+    AgentConfig
 }

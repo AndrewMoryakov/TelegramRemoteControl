@@ -10,11 +10,12 @@ public class CommandExecutor
     private readonly Dictionary<CommandType, ICommandExecutor> _executors;
     private readonly ILogger<CommandExecutor> _logger;
 
-    public CommandExecutor(ILogger<CommandExecutor> logger, IOptions<AgentSettings> settings, IOptions<AiSettings> aiSettings)
+    public CommandExecutor(ILogger<CommandExecutor> logger, IOptions<AgentSettings> settings, IOptions<AiSettings> aiSettings, IHostEnvironment environment)
     {
         _logger = logger;
         var agentSettings = settings.Value;
         var ai = aiSettings.Value;
+        var settingsPath = Path.Combine(environment.ContentRootPath, "appsettings.json");
         _executors = new Dictionary<CommandType, ICommandExecutor>
         {
             [CommandType.Status] = new StatusExecutor(),
@@ -40,7 +41,8 @@ public class CommandExecutor
             [CommandType.Restart] = new RestartExecutor(),
             [CommandType.Sleep] = new SleepExecutor(),
             [CommandType.Hibernate] = new HibernateExecutor(),
-            [CommandType.AiChat] = new AiChatExecutor(ai),
+            [CommandType.AiChat]      = new AiChatExecutor(ai),
+            [CommandType.AgentConfig] = new AgentConfigExecutor(ai, settingsPath),
         };
     }
 

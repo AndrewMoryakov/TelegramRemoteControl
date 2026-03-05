@@ -60,6 +60,7 @@ builder.Services.AddSingleton<ICommand, ApproveCommand>();
 builder.Services.AddSingleton<ICommand, DenyCommand>();
 builder.Services.AddSingleton<ICommand, RegisterCommand>();
 builder.Services.AddSingleton<ICommand, AiAgentCommand>();
+builder.Services.AddSingleton<ICommand, AiConfigCommand>();
 
 builder.Services.AddSingleton<CommandRegistry>(sp =>
     new CommandRegistry(sp.GetServices<ICommand>()));
@@ -75,6 +76,7 @@ builder.Services.AddSingleton<ICallbackHandler, FileCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, ConfirmCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, NotifyCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, AiCallbackHandler>();
+builder.Services.AddSingleton<ICallbackHandler, AiConfigCallbackHandler>();
 
 builder.Services.AddSingleton<CallbackRegistry>(sp =>
     new CallbackRegistry(sp.GetServices<ICallbackHandler>()));
