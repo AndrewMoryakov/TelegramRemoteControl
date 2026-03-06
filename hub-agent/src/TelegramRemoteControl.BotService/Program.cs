@@ -105,32 +105,20 @@ builder.Services.AddHostedService<HubHealthMonitor>();
 Console.Error.WriteLine("[DIAG] Before host.Build()");
 var host = builder.Build();
 Console.Error.WriteLine("[DIAG] host.Build() done - DI container built");
-Console.Error.WriteLine("[DIAG] Testing DI with timeout (Task.Run)");
-var diTask = Task.Run(() =>
+async Task<bool> TestDI<T>(string name) where T : class
 {
-    Console.Error.WriteLine("[DIAG] DI Task.Run: start");
-    var reg = host.Services.GetRequiredService<TelegramRemoteControl.BotService.Commands.CommandRegistry>();
-    Console.Error.WriteLine("[DIAG] DI Task.Run: got registry with " + reg.GetAll().Count + " commands");
-    return reg;
-});
-var winner = await Task.WhenAny(diTask, Task.Delay(5000));
-if (winner == diTask)
-    Console.Error.WriteLine("[DIAG] DI succeeded!");
-else
-    Console.Error.WriteLine("[DIAG] DI TIMED OUT after 5 seconds!");
-
-Console.Error.WriteLine("[DIAG] Now testing manual instantiation");
-try
-{
-    Console.Error.WriteLine("[DIAG] Creating StatusCommand");
-    var sc = new TelegramRemoteControl.BotService.Commands.Impl.StatusCommand();
-    Console.Error.WriteLine("[DIAG] StatusCommand OK, Id=" + sc.Id);
-}
-catch (Exception ex)
-{
-    Console.Error.WriteLine("[DIAG] StatusCommand FAILED: " + ex.GetType().Name + " " + ex.Message);
+    var t = Task.Run(() => host.Services.GetRequiredService<T>());
+    var w = await Task.WhenAny(t, Task.Delay(3000));
+    if (w == t) { Console.Error.WriteLine($"[DIAG] {name}: OK"); return true; }
+    Console.Error.WriteLine($"[DIAG] {name}: DEADLOCK (3s timeout)");
+    return false;
 }
 
-Console.Error.WriteLine("[DIAG] After tests, calling host.Run()");
+Console.Error.WriteLine("[DIAG] Checking individual DI services:");
+await TestDI<BotSettings>("BotSettings (direct singleton)");
+await TestDI<TelegramRemoteControl.BotService.HubClient>("HubClient (HttpClient)");
+await TestDI<TelegramRemoteControl.BotService.Commands.CommandRegistry>("CommandRegistry");
+
+Console.Error.WriteLine("[DIAG] Calling host.Run()");
 host.Run();
 Console.Error.WriteLine("[DIAG] host.Run() returned");
