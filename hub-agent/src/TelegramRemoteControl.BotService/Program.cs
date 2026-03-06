@@ -105,17 +105,32 @@ builder.Services.AddHostedService<HubHealthMonitor>();
 Console.Error.WriteLine("[DIAG] Before host.Build()");
 var host = builder.Build();
 Console.Error.WriteLine("[DIAG] host.Build() done - DI container built");
-Console.Error.WriteLine("[DIAG] Testing DI resolution directly");
+Console.Error.WriteLine("[DIAG] Testing DI with timeout (Task.Run)");
+var diTask = Task.Run(() =>
+{
+    Console.Error.WriteLine("[DIAG] DI Task.Run: start");
+    var reg = host.Services.GetRequiredService<TelegramRemoteControl.BotService.Commands.CommandRegistry>();
+    Console.Error.WriteLine("[DIAG] DI Task.Run: got registry with " + reg.GetAll().Count + " commands");
+    return reg;
+});
+var winner = await Task.WhenAny(diTask, Task.Delay(5000));
+if (winner == diTask)
+    Console.Error.WriteLine("[DIAG] DI succeeded!");
+else
+    Console.Error.WriteLine("[DIAG] DI TIMED OUT after 5 seconds!");
+
+Console.Error.WriteLine("[DIAG] Now testing manual instantiation");
 try
 {
-    var registry = host.Services.GetRequiredService<TelegramRemoteControl.BotService.Commands.CommandRegistry>();
-    Console.Error.WriteLine("[DIAG] CommandRegistry OK: " + registry.GetAll().Count + " commands");
+    Console.Error.WriteLine("[DIAG] Creating StatusCommand");
+    var sc = new TelegramRemoteControl.BotService.Commands.Impl.StatusCommand();
+    Console.Error.WriteLine("[DIAG] StatusCommand OK, Id=" + sc.Id);
 }
 catch (Exception ex)
 {
-    Console.Error.WriteLine("[DIAG] CommandRegistry FAILED: " + ex.Message);
+    Console.Error.WriteLine("[DIAG] StatusCommand FAILED: " + ex.GetType().Name + " " + ex.Message);
 }
 
-Console.Error.WriteLine("[DIAG] After DI test, calling host.Run()");
+Console.Error.WriteLine("[DIAG] After tests, calling host.Run()");
 host.Run();
 Console.Error.WriteLine("[DIAG] host.Run() returned");
