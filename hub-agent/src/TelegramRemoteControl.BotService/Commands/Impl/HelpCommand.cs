@@ -4,11 +4,11 @@ namespace TelegramRemoteControl.BotService.Commands.Impl;
 
 public class HelpCommand : ICommand
 {
-    private readonly CommandRegistry _registry;
+    private readonly IEnumerable<ICommand> _commands;
 
-    public HelpCommand(CommandRegistry registry)
+    public HelpCommand(IEnumerable<ICommand> commands)
     {
-        _registry = registry;
+        _commands = commands;
     }
 
     public string Id => "help";
@@ -24,8 +24,8 @@ public class HelpCommand : ICommand
 
         foreach (var category in Categories.Order)
         {
-            var commands = _registry.GetByCategory(category)
-                .Where(c => c.Id != Id)
+            var commands = _commands
+                .Where(c => string.Equals(c.Category, category, StringComparison.OrdinalIgnoreCase) && c.Id != Id)
                 .ToList();
             if (commands.Count == 0) continue;
 
