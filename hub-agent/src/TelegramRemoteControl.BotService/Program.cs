@@ -7,6 +7,8 @@ using TelegramRemoteControl.BotService.Commands.Impl;
 using TelegramRemoteControl.BotService.Menu;
 using TelegramRemoteControl.BotService.Services;
 
+Console.Error.WriteLine("[DIAG] Program starting");
+
 var builder = Host.CreateApplicationBuilder(args);
 
 builder.Logging.ClearProviders();
@@ -100,5 +102,8 @@ builder.Services.AddHostedService<TelegramBotService>();
 builder.Services.AddHostedService<DeviceStatusMonitor>();
 builder.Services.AddHostedService<HubHealthMonitor>();
 
+Console.Error.WriteLine("[DIAG] Before host.Build()");
 var host = builder.Build();
+Console.Error.WriteLine("[DIAG] After host.Build(), calling host.Run()");
 host.Run();
+Console.Error.WriteLine("[DIAG] host.Run() returned");
