@@ -105,6 +105,12 @@ builder.Services.AddHostedService<HubHealthMonitor>();
 Console.Error.WriteLine("[DIAG] Before host.Build()");
 var host = builder.Build();
 Console.Error.WriteLine("[DIAG] host.Build() done - DI container built");
-Console.Error.WriteLine("[DIAG] After host.Build(), calling host.Run()");
-host.Run();
-Console.Error.WriteLine("[DIAG] host.Run() returned");
+Console.Error.WriteLine("[DIAG] After host.Build(), calling StartAsync");
+var cts = new CancellationTokenSource();
+Console.CancelKeyPress += (_, e) => { e.Cancel = true; cts.Cancel(); };
+AppDomain.CurrentDomain.ProcessExit += (_, _) => cts.Cancel();
+
+await host.StartAsync(cts.Token);
+Console.Error.WriteLine("[DIAG] StartAsync completed! Bot services running.");
+await host.WaitForShutdownAsync(cts.Token);
+Console.Error.WriteLine("[DIAG] Shutdown complete");
