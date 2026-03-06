@@ -19,23 +19,19 @@ builder.Services.Configure<BotSettings>(builder.Configuration.GetSection("BotSet
 var botSettings = builder.Configuration.GetSection("BotSettings").Get<BotSettings>() ?? new BotSettings();
 builder.Services.AddSingleton(botSettings);
 
-var botHttpClient = new HttpClient(new HttpClientHandler
-{
-    Proxy = null,
-    UseProxy = false
-});
+Console.Error.WriteLine("[DIAG] Creating TelegramBotClient");
+var botHttpClient = new HttpClient();
+Console.Error.WriteLine("[DIAG] TelegramBotClient HttpClient created");
 builder.Services.AddSingleton<ITelegramBotClient>(new TelegramBotClient(botSettings.Token, botHttpClient));
+Console.Error.WriteLine("[DIAG] TelegramBotClient registered");
 builder.Services.AddHttpClient<HubClient>(client =>
 {
     client.BaseAddress = new Uri(botSettings.HubUrl);
     client.Timeout = TimeSpan.FromSeconds(360);
     if (!string.IsNullOrEmpty(botSettings.HubApiKey))
         client.DefaultRequestHeaders.Add("X-Api-Key", botSettings.HubApiKey);
-}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-{
-    Proxy = null,
-    UseProxy = false
 });
+Console.Error.WriteLine("[DIAG] HubClient HttpClient registered");
 
 // Commands
 builder.Services.AddSingleton<ICommand, StatusCommand>();
@@ -105,8 +101,6 @@ builder.Services.AddHostedService<HubHealthMonitor>();
 Console.Error.WriteLine("[DIAG] Before host.Build()");
 var host = builder.Build();
 Console.Error.WriteLine("[DIAG] host.Build() done - DI container built");
-Console.Error.WriteLine("[DIAG] After host.Build(), calling host.StartAsync()");
-await host.StartAsync();
-Console.Error.WriteLine("[DIAG] host.StartAsync() done, calling WaitForShutdownAsync()");
-await host.WaitForShutdownAsync();
+Console.Error.WriteLine("[DIAG] After host.Build(), calling host.Run()");
+host.Run();
 Console.Error.WriteLine("[DIAG] host.Run() returned");
