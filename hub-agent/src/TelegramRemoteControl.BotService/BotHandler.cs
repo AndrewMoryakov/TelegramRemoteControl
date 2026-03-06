@@ -26,17 +26,12 @@ public class BotHandler
     public BotHandler(CommandRegistry commands, CallbackRegistry callbacks, HubClient hubClient,
         MenuBuilder menu, IOptions<BotSettings> settings, ILogger<BotHandler> logger)
     {
-        Console.Error.WriteLine("[DIAG] BotHandler ctor: start");
         _commands = commands;
-        Console.Error.WriteLine("[DIAG] BotHandler ctor: commands ok");
         _callbacks = callbacks;
-        Console.Error.WriteLine("[DIAG] BotHandler ctor: callbacks ok");
         _hubClient = hubClient;
-        Console.Error.WriteLine("[DIAG] BotHandler ctor: hubClient ok");
         _menu = menu;
         _settings = settings.Value;
         _logger = logger;
-        Console.Error.WriteLine("[DIAG] BotHandler ctor: done");
     }
 
     public async Task HandleMessageAsync(ITelegramBotClient bot, Message message, CancellationToken ct)

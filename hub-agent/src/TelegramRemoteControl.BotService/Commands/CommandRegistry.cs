@@ -8,10 +8,8 @@ public class CommandRegistry
 
     public CommandRegistry(IEnumerable<ICommand> commands)
     {
-        Console.Error.WriteLine("[DIAG] CommandRegistry ctor: start");
         foreach (var cmd in commands)
         {
-            Console.Error.WriteLine("[DIAG] CommandRegistry: registering " + cmd.Id);
             _commands.Add(cmd);
             _byId[cmd.Id] = cmd;
             foreach (var alias in cmd.Aliases)
@@ -19,7 +17,6 @@ public class CommandRegistry
                 _byAlias[alias] = cmd;
             }
         }
-        Console.Error.WriteLine("[DIAG] CommandRegistry ctor: done, count=" + _commands.Count);
     }
 
     public ICommand? FindByAlias(string alias)

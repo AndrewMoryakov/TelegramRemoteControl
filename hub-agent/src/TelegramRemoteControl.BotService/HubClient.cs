@@ -10,10 +10,8 @@ public class HubClient
 
     public HubClient(HttpClient http, ILogger<HubClient> logger)
     {
-        Console.Error.WriteLine("[DIAG] HubClient ctor: start");
         _http = http;
         _logger = logger;
-        Console.Error.WriteLine("[DIAG] HubClient ctor: done, BaseAddress=" + http.BaseAddress);
     }
 
     public async Task<ExecuteCommandResponse> ExecuteCommand(ExecuteCommandRequest request)

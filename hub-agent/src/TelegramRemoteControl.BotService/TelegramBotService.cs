@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Polling;
 using Telegram.Bot.Types;
@@ -20,7 +19,6 @@ public class TelegramBotService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        Console.Error.WriteLine("[DIAG] TelegramBotService.ExecuteAsync entered");
         _logger.LogInformation("Telegram bot starting...");
 
         var receiverOptions = new ReceiverOptions
@@ -28,16 +26,13 @@ public class TelegramBotService : BackgroundService
             AllowedUpdates = Array.Empty<Telegram.Bot.Types.Enums.UpdateType>()
         };
 
-        Console.Error.WriteLine("[DIAG] Calling StartReceiving");
         _bot.StartReceiving(
             HandleUpdateAsync,
             HandleErrorAsync,
             receiverOptions,
             stoppingToken);
 
-        Console.Error.WriteLine("[DIAG] StartReceiving done, calling GetMe");
         var me = await _bot.GetMe(stoppingToken);
-        Console.Error.WriteLine("[DIAG] GetMe done: " + me.Username);
         _logger.LogInformation("Bot started: @{BotName}", me.Username);
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
