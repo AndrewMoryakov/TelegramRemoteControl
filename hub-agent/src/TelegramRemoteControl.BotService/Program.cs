@@ -104,6 +104,9 @@ builder.Services.AddHostedService<HubHealthMonitor>();
 
 Console.Error.WriteLine("[DIAG] Before host.Build()");
 var host = builder.Build();
-Console.Error.WriteLine("[DIAG] After host.Build(), calling host.Run()");
-host.Run();
+Console.Error.WriteLine("[DIAG] host.Build() done - DI container built");
+Console.Error.WriteLine("[DIAG] After host.Build(), calling host.StartAsync()");
+await host.StartAsync();
+Console.Error.WriteLine("[DIAG] host.StartAsync() done, calling WaitForShutdownAsync()");
+await host.WaitForShutdownAsync();
 Console.Error.WriteLine("[DIAG] host.Run() returned");
