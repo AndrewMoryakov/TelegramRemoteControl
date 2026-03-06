@@ -64,11 +64,13 @@ builder.Services.AddSingleton<ICommand, HelpCommand>();
 builder.Services.AddSingleton<ICommand, SysHealthCommand>();
 builder.Services.AddSingleton<ICommand, LogCommand>();
 builder.Services.AddSingleton<ICommand, UsersCommand>();
-builder.Services.AddSingleton<ICommand, ClipboardCommand>();
-builder.Services.AddSingleton<ICommand, UploadCommand>();
-builder.Services.AddSingleton<ICommand, ScreenRecordCommand>();
-builder.Services.AddSingleton<ICommand, MediaCommand>();
-builder.Services.AddSingleton<ICommand, BroadcastCommand>();
+Console.Error.WriteLine("[DIAG] About to register new commands");
+//builder.Services.AddSingleton<ICommand, ClipboardCommand>();
+//builder.Services.AddSingleton<ICommand, UploadCommand>();
+//builder.Services.AddSingleton<ICommand, ScreenRecordCommand>();
+//builder.Services.AddSingleton<ICommand, MediaCommand>();
+//builder.Services.AddSingleton<ICommand, BroadcastCommand>();
+Console.Error.WriteLine("[DIAG] New commands skipped (commented out)");
 
 builder.Services.AddSingleton<CommandRegistry>(sp =>
     new CommandRegistry(sp.GetServices<ICommand>()));
@@ -87,8 +89,10 @@ builder.Services.AddSingleton<ICallbackHandler, AiCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, AiConfigCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, ShellCallbackHandler>();
 builder.Services.AddSingleton<ICallbackHandler, AdminUserCallbackHandler>();
-builder.Services.AddSingleton<ICallbackHandler, MediaCallbackHandler>();
-builder.Services.AddSingleton<ICallbackHandler, BroadcastCallbackHandler>();
+Console.Error.WriteLine("[DIAG] About to register new callbacks");
+//builder.Services.AddSingleton<ICallbackHandler, MediaCallbackHandler>();
+//builder.Services.AddSingleton<ICallbackHandler, BroadcastCallbackHandler>();
+Console.Error.WriteLine("[DIAG] New callbacks skipped (commented out)");
 
 builder.Services.AddSingleton<CallbackRegistry>(sp =>
     new CallbackRegistry(sp.GetServices<ICallbackHandler>()));
