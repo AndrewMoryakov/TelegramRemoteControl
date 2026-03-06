@@ -133,6 +133,22 @@ public class HubClient
         }
     }
 
+    public async Task<List<BroadcastResultDto>> BroadcastCommand(BroadcastRequest request)
+    {
+        try
+        {
+            var resp = await _http.PostAsJsonAsync("/api/commands/broadcast", request);
+            resp.EnsureSuccessStatusCode();
+            return await resp.Content.ReadFromJsonAsync<List<BroadcastResultDto>>()
+                   ?? new List<BroadcastResultDto>();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to broadcast command");
+            return new List<BroadcastResultDto>();
+        }
+    }
+
     public async Task<bool> IsHubAlive()
     {
         try

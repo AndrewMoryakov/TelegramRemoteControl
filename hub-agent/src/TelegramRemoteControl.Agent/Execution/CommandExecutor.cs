@@ -41,8 +41,13 @@ public class CommandExecutor
             [CommandType.Restart] = new RestartExecutor(),
             [CommandType.Sleep] = new SleepExecutor(),
             [CommandType.Hibernate] = new HibernateExecutor(),
-            [CommandType.AiChat]      = new AiChatDispatcher(ai),
-            [CommandType.AgentConfig] = new AgentConfigExecutor(ai, settingsPath),
+            [CommandType.AiChat]       = new AiChatDispatcher(ai),
+            [CommandType.AgentConfig]  = new AgentConfigExecutor(ai, settingsPath),
+            [CommandType.ClipboardGet] = new ClipboardGetExecutor(),
+            [CommandType.ClipboardSet] = new ClipboardSetExecutor(),
+            [CommandType.FileUpload]   = new FileUploadExecutor(),
+            [CommandType.ScreenRecord] = new ScreenRecordExecutor(),
+            [CommandType.Media]        = new MediaExecutor(),
         };
     }
 

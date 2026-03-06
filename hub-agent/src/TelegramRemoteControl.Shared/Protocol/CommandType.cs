@@ -40,5 +40,18 @@ public enum CommandType
 
     // AI
     AiChat,
-    AgentConfig
+    AgentConfig,
+
+    // Clipboard
+    ClipboardGet,
+    ClipboardSet,
+
+    // Upload
+    FileUpload,
+
+    // Screen Recording
+    ScreenRecord,
+
+    // Media
+    Media
 }

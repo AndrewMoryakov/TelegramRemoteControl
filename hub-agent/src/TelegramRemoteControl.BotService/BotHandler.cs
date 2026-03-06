@@ -36,7 +36,25 @@ public class BotHandler
 
     public async Task HandleMessageAsync(ITelegramBotClient bot, Message message, CancellationToken ct)
     {
-        if (message.Text == null || message.From == null)
+        if (message.From == null)
+            return;
+
+        var userId = message.From.Id;
+
+        // File upload mode: handle incoming document or photo
+        if (FileUploadSession.IsActive(userId) && message.Text == null)
+        {
+            var isAuthorizedForUpload = await EnsureAuthorizedAsync(message.From, ct);
+            if (!isAuthorizedForUpload) return;
+
+            if (message.Document != null || message.Photo != null)
+            {
+                await HandleFileUploadAsync(bot, message, userId, ct);
+                return;
+            }
+        }
+
+        if (message.Text == null)
             return;
 
         var text = message.Text.Trim();
@@ -46,7 +64,7 @@ public class BotHandler
         var isStart = text == "/start" || text == "/menu";
         var isRegister = string.Equals(commandAlias, "/register", StringComparison.OrdinalIgnoreCase);
 
-        var userId = message.From.Id;
+        // userId is already declared above
         var isAuthorized = await EnsureAuthorizedAsync(message.From, ct);
         if (!isAuthorized)
         {
@@ -74,6 +92,14 @@ public class BotHandler
             AiSessionManager.End(userId);
             await EnsureAutoSelectAsync(userId);
             await ShowMainMenuAsync(bot, message.Chat.Id, userId, ct);
+            return;
+        }
+
+        // File upload mode: /cancel exits it
+        if (FileUploadSession.IsActive(userId) && text == "/cancel")
+        {
+            FileUploadSession.End(userId);
+            await bot.SendMessage(message.Chat.Id, "❌ Загрузка отменена", cancellationToken: ct);
             return;
         }
 
@@ -222,6 +248,64 @@ public class BotHandler
         {
             _logger.LogError(ex, "Error handling callback {Data}", query.Data);
             await TryAnswerCallbackAsync(bot, query.Id, $"❌ {ex.Message}", true, ct);
+        }
+    }
+
+    private async Task HandleFileUploadAsync(ITelegramBotClient bot, Message message, long userId, CancellationToken ct)
+    {
+        var dest = FileUploadSession.GetDestination(userId);
+        FileUploadSession.End(userId);
+
+        string? fileId;
+        string? filename;
+
+        if (message.Document != null)
+        {
+            fileId = message.Document.FileId;
+            filename = message.Document.FileName ?? "upload.bin";
+        }
+        else if (message.Photo != null && message.Photo.Length > 0)
+        {
+            var largest = message.Photo[^1];
+            fileId = largest.FileId;
+            filename = "photo.jpg";
+        }
+        else
+        {
+            await bot.SendMessage(message.Chat.Id, "❌ Неподдерживаемый тип файла", cancellationToken: ct);
+            return;
+        }
+
+        await bot.SendChatAction(message.Chat.Id, Telegram.Bot.Types.Enums.ChatAction.UploadDocument, cancellationToken: ct);
+
+        try
+        {
+            var fileInfo = await bot.GetFile(fileId, cancellationToken: ct);
+            using var ms = new MemoryStream();
+            await bot.DownloadFile(fileInfo.FilePath!, ms, cancellationToken: ct);
+            var data = ms.ToArray();
+
+            var response = await _hubClient.ExecuteCommand(new Shared.Contracts.HubApi.ExecuteCommandRequest
+            {
+                UserId = userId,
+                CommandType = Shared.Protocol.CommandType.FileUpload,
+                Arguments = dest,
+                Parameters = new Dictionary<string, string> { ["filename"] = filename },
+                Data = data
+            });
+
+            var reply = response.Success
+                ? response.Text ?? "✅ Файл загружен"
+                : $"❌ {response.ErrorMessage}";
+
+            await bot.SendMessage(message.Chat.Id, reply,
+                parseMode: Telegram.Bot.Types.Enums.ParseMode.Markdown,
+                cancellationToken: ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "File upload failed for user {UserId}", userId);
+            await bot.SendMessage(message.Chat.Id, $"❌ Ошибка загрузки: {ex.Message}", cancellationToken: ct);
         }
     }
 

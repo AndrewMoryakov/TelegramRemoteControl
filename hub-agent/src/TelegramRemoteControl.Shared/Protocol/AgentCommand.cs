@@ -6,4 +6,5 @@ public class AgentCommand
     public CommandType Type { get; init; }
     public string? Arguments { get; init; }
     public Dictionary<string, string>? Parameters { get; init; }
+    public byte[]? Data { get; init; }
 }

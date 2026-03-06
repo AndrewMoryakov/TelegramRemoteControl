@@ -83,7 +83,8 @@ public class CommandsController : ControllerBase
             RequestId = Guid.NewGuid().ToString(),
             Type = request.CommandType,
             Arguments = request.Arguments,
-            Parameters = request.Parameters
+            Parameters = request.Parameters,
+            Data = request.Data
         };
 
         _logger.LogInformation("Executing {CommandType} on {AgentId} for user {UserId}, RequestId={RequestId}",
