@@ -4,11 +4,11 @@ namespace TelegramRemoteControl.BotService.Commands.Impl;
 
 public class HelpCommand : ICommand
 {
-    private readonly IEnumerable<ICommand> _commands;
+    private readonly IServiceProvider _serviceProvider;
 
-    public HelpCommand(IEnumerable<ICommand> commands)
+    public HelpCommand(IServiceProvider serviceProvider)
     {
-        _commands = commands;
+        _serviceProvider = serviceProvider;
     }
 
     public string Id => "help";
@@ -20,11 +20,12 @@ public class HelpCommand : ICommand
 
     public async Task ExecuteAsync(CommandContext ctx)
     {
+        var commandRegistry = _serviceProvider.GetRequiredService<CommandRegistry>();
         var lines = new List<string> { "*Доступные команды:*", "" };
 
         foreach (var category in Categories.Order)
         {
-            var commands = _commands
+            var commands = commandRegistry.GetAll()
                 .Where(c => string.Equals(c.Category, category, StringComparison.OrdinalIgnoreCase) && c.Id != Id)
                 .ToList();
             if (commands.Count == 0) continue;
