@@ -147,11 +147,20 @@ public class AgentHub : Hub<IAgentHubClient>, IAgentHubServer
     public Task Heartbeat(AgentInfo info)
     {
         var agentId = _agentManager.GetAgentIdByConnection(Context.ConnectionId);
-        if (agentId != null)
+        if (agentId == null)
         {
-            _agentManager.UpdateHeartbeat(agentId, info);
-            _ = _db.UpdateAgentLastSeenAsync(agentId);
+            // Unknown connection — happens after Hub restart when the agent's SignalR
+            // connection survived (no TCP FIN). Abort the connection to force the client
+            // into Reconnected/Closed handler, which will call RegisterAgent again.
+            _logger.LogWarning(
+                "Heartbeat from unknown connection {ConnId}, aborting to force re-register",
+                Context.ConnectionId);
+            Context.Abort();
+            return Task.CompletedTask;
         }
+
+        _agentManager.UpdateHeartbeat(agentId, info);
+        _ = _db.UpdateAgentLastSeenAsync(agentId);
         return Task.CompletedTask;
     }
 

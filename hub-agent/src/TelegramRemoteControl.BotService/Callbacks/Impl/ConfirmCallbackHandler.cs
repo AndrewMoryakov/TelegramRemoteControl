@@ -41,7 +41,36 @@ public class ConfirmCallbackHandler : ICallbackHandler
         }
         var command = _commands.FindById(commandId);
         if (command == null)
+        {
+            try { await ctx.Bot.AnswerCallbackQuery(ctx.Query.Id, cancellationToken: ctx.CancellationToken); } catch { }
             return;
+        }
+
+        // Disable the confirm keyboard BEFORE executing to prevent double-tap re-execution
+        // of destructive commands (shutdown/kill/restart/sleep). Must run before the long-
+        // running ExecuteConfirmedAsync; otherwise the button stays tappable for the whole
+        // command duration.
+        if (ctx.MessageId.HasValue)
+        {
+            try
+            {
+                await ctx.Bot.EditMessageReplyMarkup(ctx.ChatId, ctx.MessageId.Value,
+                    replyMarkup: null, cancellationToken: ctx.CancellationToken);
+            }
+            catch
+            {
+                // message may be gone / already edited
+            }
+        }
+
+        try
+        {
+            await ctx.Bot.AnswerCallbackQuery(ctx.Query.Id, cancellationToken: ctx.CancellationToken);
+        }
+        catch
+        {
+            // ignore expired callback
+        }
 
         var commandCtx = CreateCommandContext(ctx, arguments);
 
@@ -64,15 +93,6 @@ public class ConfirmCallbackHandler : ICallbackHandler
             {
                 // ignore
             }
-        }
-
-        try
-        {
-            await ctx.Bot.AnswerCallbackQuery(ctx.Query.Id, cancellationToken: ctx.CancellationToken);
-        }
-        catch
-        {
-            // ignore expired callback
         }
     }
 

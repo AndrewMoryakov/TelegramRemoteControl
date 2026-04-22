@@ -63,7 +63,17 @@ public class AgentService : BackgroundService
         _connection.Reconnected += async _ =>
         {
             _logger.LogInformation("Reconnected to Hub. Re-registering...");
-            await RegisterAgent(GetCredential(), stoppingToken);
+            try
+            {
+                await RegisterAgent(GetCredential(), stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                // If re-register fails after an auto-reconnect, the next Heartbeat will
+                // land on an unknown connection in the Hub → Hub aborts → we land here
+                // again on the next Reconnected. Logging is enough.
+                _logger.LogError(ex, "Re-register after reconnect failed");
+            }
         };
 
         _connection.Closed += ex =>
@@ -72,23 +82,29 @@ public class AgentService : BackgroundService
             return Task.CompletedTask;
         };
 
-        // Connect with retry
+        // Connect + Register with retry. Both operations are in the same loop so that
+        // a failed RegisterAgent tears the connection down and we start fresh, instead
+        // of sitting in a connected-but-unregistered state (zombie heartbeat).
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
                 await _connection.StartAsync(stoppingToken);
                 _logger.LogInformation("Connected to Hub at {HubUrl}", _settings.HubUrl);
+                await RegisterAgent(credential, stoppingToken);
                 break;
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to connect to Hub. Retrying in 5s...");
+                _logger.LogError(ex, "Connect+Register failed. Retrying in 5s...");
+                try { await _connection.StopAsync(stoppingToken); } catch { /* best effort */ }
                 await Task.Delay(5000, stoppingToken);
             }
         }
-
-        await RegisterAgent(credential, stoppingToken);
 
         // Heartbeat loop
         var agentInfo = BuildAgentInfo();
@@ -214,16 +230,9 @@ public class AgentService : BackgroundService
 
     private async Task RegisterAgent(string credential, CancellationToken ct)
     {
-        try
-        {
-            var info = BuildAgentInfo();
-            await _connection!.InvokeAsync("RegisterAgent", credential, info, ct);
-            _logger.LogInformation("Registered as {MachineName} ({AgentId})", info.MachineName, info.AgentId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to register agent");
-        }
+        var info = BuildAgentInfo();
+        await _connection!.InvokeAsync("RegisterAgent", credential, info, ct);
+        _logger.LogInformation("Registered as {MachineName} ({AgentId})", info.MachineName, info.AgentId);
     }
 
     private AgentInfo BuildAgentInfo()
