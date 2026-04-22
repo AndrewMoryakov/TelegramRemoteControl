@@ -16,6 +16,7 @@ builder.Services.AddSingleton<HubDbContext>();
 builder.Services.AddSingleton<AgentManager>();
 builder.Services.AddSingleton<PendingCommandStore>();
 builder.Services.AddSingleton<PairingAttemptTracker>();
+builder.Services.AddHostedService<AgentLivenessMonitor>();
 builder.Services.AddControllers();
 
 var hubSettings = builder.Configuration.GetSection("HubSettings").Get<HubSettings>() ?? new HubSettings();

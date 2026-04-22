@@ -68,7 +68,8 @@ public class CommandsController : ControllerBase
             });
         }
 
-        if (!agent.IsOnline)
+        var livenessThreshold = TimeSpan.FromSeconds(Math.Max(30, _settings.AgentTimeoutSeconds));
+        if (!agent.IsOnline || DateTime.UtcNow - agent.LastHeartbeat > livenessThreshold)
         {
             return Ok(new ExecuteCommandResponse
             {
