@@ -534,7 +534,7 @@ public class HubDbContext
             cmd.Parameters.AddWithValue("@userId", userId);
             cmd.Parameters.AddWithValue("@agentId", agentId);
             cmd.Parameters.AddWithValue("@type", commandType);
-            cmd.Parameters.AddWithValue("@args", arguments != null ? (object)arguments[..Math.Min(500, arguments.Length)] : DBNull.Value);
+            cmd.Parameters.AddWithValue("@args", arguments != null ? (object)SafeTruncate(arguments, AuditArgumentsCap(commandType)) : DBNull.Value);
             cmd.Parameters.AddWithValue("@success", success ? 1 : 0);
             cmd.Parameters.AddWithValue("@duration", durationMs);
 
@@ -544,6 +544,17 @@ public class HubDbContext
         {
             _logger.LogWarning(ex, "Failed to write audit log");
         }
+    }
+
+    private static int AuditArgumentsCap(string commandType) =>
+        commandType is "Cmd" or "PowerShell" ? 10_000 : 500;
+
+    private static string SafeTruncate(string s, int max)
+    {
+        if (s.Length <= max) return s;
+        var end = max;
+        if (char.IsHighSurrogate(s[end - 1])) end--;
+        return s[..end];
     }
 
     private static AgentRegistration ReadAgent(SqliteDataReader reader)
