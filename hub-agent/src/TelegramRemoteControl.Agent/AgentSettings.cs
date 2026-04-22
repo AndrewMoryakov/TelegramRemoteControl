@@ -12,4 +12,7 @@ public class AgentSettings
     public int FilePreviewMaxChars { get; set; } = 4000;
     public int FileBinaryProbeBytes { get; set; } = 8000;
     public string FileRootPath { get; set; } = string.Empty;
+    // "System" (default, runs under LocalSystem — works even without a logged-in user)
+    // or "User" (runs in the active interactive session — requires a logged-in user).
+    public string ShellRunAs { get; set; } = "System";
 }

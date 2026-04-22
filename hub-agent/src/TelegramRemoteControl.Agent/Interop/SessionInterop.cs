@@ -176,6 +176,179 @@ public static class SessionInterop
         try { if (File.Exists(path)) File.Delete(path); } catch { }
     }
 
+    public class CapturedRunResult
+    {
+        public int ExitCode { get; init; }
+        public uint SessionId { get; init; }
+        public string Stdout { get; init; } = "";
+        public string Stderr { get; init; } = "";
+        public string? Error { get; init; }
+    }
+
+    // Runs <scriptBody> inside a wrapper .cmd in the active user's session (Session 1+).
+    // Stdout/stderr are captured via shell redirection inside the wrapper so callers can read
+    // them back. scriptBody is embedded literally — callers are responsible for quoting.
+    public static CapturedRunResult RunInUserSessionCaptured(
+        string scriptBody, int timeoutMs, Encoding outputEncoding)
+    {
+        uint sessionId = GetActiveUserSessionId();
+        if (sessionId == 0xFFFFFFFF)
+            return new CapturedRunResult { ExitCode = -1, Error = "No active user session found" };
+
+        IntPtr userToken = IntPtr.Zero;
+        string? domainUser = null;
+        try
+        {
+            if (WTSQueryUserToken(sessionId, out userToken))
+                domainUser = GetDomainUsername(userToken);
+        }
+        finally
+        {
+            if (userToken != IntPtr.Zero) CloseHandle(userToken);
+        }
+
+        if (string.IsNullOrEmpty(domainUser))
+            return new CapturedRunResult
+            {
+                ExitCode = -1,
+                SessionId = sessionId,
+                Error = "Could not determine username for session"
+            };
+
+        var tempDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "TelegramRemoteControl", "temp");
+        Directory.CreateDirectory(tempDir);
+
+        var taskId = Guid.NewGuid().ToString("N");
+        var taskName = $"TRC_{taskId}";
+        var exitCodeFile = Path.Combine(tempDir, $"{taskId}_exit.txt");
+        var stdoutFile = Path.Combine(tempDir, $"{taskId}_out.txt");
+        var stderrFile = Path.Combine(tempDir, $"{taskId}_err.txt");
+        var wrapperCmd = Path.Combine(tempDir, $"{taskId}.cmd");
+        var wrapperVbs = Path.Combine(tempDir, $"{taskId}.vbs");
+        var xmlPath = Path.Combine(tempDir, $"{taskId}.xml");
+
+        try
+        {
+            // Parentheses group scriptBody so redirection captures the whole block,
+            // even when user commands use `&` / `|` internally.
+            var cmdContent =
+                "@echo off\r\n" +
+                "(\r\n" +
+                scriptBody + "\r\n" +
+                $") > \"{stdoutFile}\" 2> \"{stderrFile}\"\r\n";
+            File.WriteAllText(wrapperCmd, cmdContent, Encoding.ASCII);
+
+            var vbsContent = new StringBuilder();
+            vbsContent.AppendLine("Set WshShell = CreateObject(\"WScript.Shell\")");
+            vbsContent.AppendLine($"exitCode = WshShell.Run(\"cmd /c \"\"{VbsEscape(wrapperCmd)}\"\"\", 0, True)");
+            vbsContent.AppendLine("Set fso = CreateObject(\"Scripting.FileSystemObject\")");
+            vbsContent.AppendLine($"Set f = fso.CreateTextFile(\"{VbsEscape(exitCodeFile)}\", True)");
+            vbsContent.AppendLine("f.Write exitCode");
+            vbsContent.AppendLine("f.Close");
+            File.WriteAllText(wrapperVbs, vbsContent.ToString(), Encoding.ASCII);
+
+            var timeoutSeconds = Math.Max(timeoutMs / 1000, 10);
+            var xml = $@"<?xml version=""1.0"" encoding=""UTF-16""?>
+<Task version=""1.2"" xmlns=""http://schemas.microsoft.com/windows/2004/02/mit/task"">
+  <Principals>
+    <Principal id=""Author"">
+      <UserId>{XmlEscape(domainUser)}</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <ExecutionTimeLimit>PT{timeoutSeconds}S</ExecutionTimeLimit>
+    <Hidden>true</Hidden>
+  </Settings>
+  <Actions>
+    <Exec>
+      <Command>wscript.exe</Command>
+      <Arguments>//B //NoLogo ""{XmlEscape(wrapperVbs)}""</Arguments>
+    </Exec>
+  </Actions>
+</Task>";
+            File.WriteAllText(xmlPath, xml, Encoding.Unicode);
+
+            var (createEc, createOut) = RunLocalProcess("schtasks.exe",
+                $"/Create /TN \"{taskName}\" /XML \"{xmlPath}\" /F");
+
+            if (createEc != 0)
+                return new CapturedRunResult
+                {
+                    ExitCode = -1,
+                    SessionId = sessionId,
+                    Error = $"schtasks /Create failed (exit {createEc}): {createOut.Trim()}"
+                };
+
+            try
+            {
+                var (runEc, runOut) = RunLocalProcess("schtasks.exe",
+                    $"/Run /TN \"{taskName}\"");
+
+                if (runEc != 0)
+                    return new CapturedRunResult
+                    {
+                        ExitCode = -1,
+                        SessionId = sessionId,
+                        Error = $"schtasks /Run failed (exit {runEc}): {runOut.Trim()}"
+                    };
+
+                var deadline = Environment.TickCount64 + timeoutMs + 5000;
+                int? resolvedExit = null;
+                while (Environment.TickCount64 < deadline)
+                {
+                    Thread.Sleep(300);
+                    if (File.Exists(exitCodeFile))
+                    {
+                        Thread.Sleep(200);
+                        try
+                        {
+                            var content = File.ReadAllText(exitCodeFile).Trim();
+                            if (int.TryParse(content, out int ec))
+                            {
+                                resolvedExit = ec;
+                                break;
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                string stdout = "", stderr = "";
+                try { if (File.Exists(stdoutFile)) stdout = File.ReadAllText(stdoutFile, outputEncoding); } catch { }
+                try { if (File.Exists(stderrFile)) stderr = File.ReadAllText(stderrFile, outputEncoding); } catch { }
+
+                return new CapturedRunResult
+                {
+                    ExitCode = resolvedExit ?? -2,
+                    SessionId = sessionId,
+                    Stdout = stdout,
+                    Stderr = stderr,
+                    Error = resolvedExit == null ? "Timeout waiting for task completion" : null
+                };
+            }
+            finally
+            {
+                RunLocalProcess("schtasks.exe", $"/Delete /TN \"{taskName}\" /F");
+            }
+        }
+        finally
+        {
+            TryDelete(xmlPath);
+            TryDelete(wrapperVbs);
+            TryDelete(wrapperCmd);
+            TryDelete(exitCodeFile);
+            TryDelete(stdoutFile);
+            TryDelete(stderrFile);
+        }
+    }
+
     public static RunResult RunInUserSession(string exePath, string arguments, int timeoutMs = 15_000)
     {
         uint sessionId = GetActiveUserSessionId();
