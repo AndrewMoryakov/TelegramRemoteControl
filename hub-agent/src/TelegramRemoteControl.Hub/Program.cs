@@ -35,6 +35,10 @@ builder.Services.AddSignalR(options =>
 {
     options.MaximumReceiveMessageSize = hubSettings.MaxMessageSizeBytes;
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    // BL-07: without an explicit client timeout SignalR can leave a dead agent's
+    // connection registered for minutes, so commands hang. Tie it to AgentTimeoutSeconds.
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(Math.Max(30, hubSettings.AgentTimeoutSeconds));
 }).AddMessagePackProtocol();
 
 var app = builder.Build();
