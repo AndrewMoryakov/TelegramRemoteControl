@@ -15,6 +15,11 @@ public class AgentService : BackgroundService
     private readonly ILogger<AgentService> _logger;
     private readonly string _settingsPath;
     private readonly SemaphoreSlim _reconnectLock = new(1, 1);
+    // BL-09: gates the heartbeat loop while a pairing-triggered reconnect or an
+    // auto-reconnect re-register is in flight. Prevents a heartbeat from landing
+    // on the new connection before RegisterAgent has run, which would show up in
+    // the Hub as "unknown connection heartbeat" and force another abort loop.
+    private readonly ManualResetEventSlim _readyForHeartbeat = new(true);
     private HubConnection? _connection;
 
     public AgentService(
@@ -63,6 +68,7 @@ public class AgentService : BackgroundService
         _connection.Reconnected += async _ =>
         {
             _logger.LogInformation("Reconnected to Hub. Re-registering...");
+            _readyForHeartbeat.Reset();
             try
             {
                 await RegisterAgent(GetCredential(), stoppingToken);
@@ -73,6 +79,10 @@ public class AgentService : BackgroundService
                 // land on an unknown connection in the Hub → Hub aborts → we land here
                 // again on the next Reconnected. Logging is enough.
                 _logger.LogError(ex, "Re-register after reconnect failed");
+            }
+            finally
+            {
+                _readyForHeartbeat.Set();
             }
         };
 
@@ -113,6 +123,7 @@ public class AgentService : BackgroundService
             try
             {
                 await Task.Delay(TimeSpan.FromSeconds(_settings.HeartbeatIntervalSeconds), stoppingToken);
+                _readyForHeartbeat.Wait(stoppingToken);
                 if (_connection.State == HubConnectionState.Connected)
                 {
                     await _connection.InvokeAsync("Heartbeat", agentInfo, stoppingToken);
@@ -173,6 +184,7 @@ public class AgentService : BackgroundService
             return;
 
         await _reconnectLock.WaitAsync(ct);
+        _readyForHeartbeat.Reset();
         try
         {
             if (_connection.State == HubConnectionState.Connected)
@@ -197,6 +209,7 @@ public class AgentService : BackgroundService
         }
         finally
         {
+            _readyForHeartbeat.Set();
             _reconnectLock.Release();
         }
     }
