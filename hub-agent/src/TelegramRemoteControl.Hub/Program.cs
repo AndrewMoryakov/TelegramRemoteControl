@@ -15,6 +15,7 @@ builder.Services.Configure<HubSettings>(builder.Configuration.GetSection("HubSet
 builder.Services.AddSingleton<HubDbContext>();
 builder.Services.AddSingleton<AgentManager>();
 builder.Services.AddSingleton<PendingCommandStore>();
+builder.Services.AddSingleton<PairingAttemptTracker>();
 builder.Services.AddControllers();
 
 var hubSettings = builder.Configuration.GetSection("HubSettings").Get<HubSettings>() ?? new HubSettings();

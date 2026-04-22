@@ -31,16 +31,17 @@ public class PairController : ControllerBase
         }
 
         var code = GenerateCode(6);
-        var expiresAt = DateTime.UtcNow.AddDays(_settings.PairingCodeTtlDays);
+        var ttlMinutes = _settings.PairingCodeTtlMinutes > 0 ? _settings.PairingCodeTtlMinutes : 15;
+        var expiresAt = DateTime.UtcNow.AddMinutes(ttlMinutes);
 
         await _db.AddPairingRequest(new PairingRequest
         {
-            Code = code,
+            CodeHash = PairingRequest.HashCode(code),
             UserId = request.UserId,
             ExpiresAt = expiresAt
         });
 
-        _logger.LogInformation("Pairing code generated: {Code} for user {UserId}", code, request.UserId);
+        _logger.LogInformation("Pairing code generated for user {UserId}, expires in {Ttl} min", request.UserId, ttlMinutes);
 
         return Ok(new PairResponse
         {

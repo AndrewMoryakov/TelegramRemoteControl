@@ -336,6 +336,23 @@ public class BotHandler
         if (session == null)
             return;
 
+        if (!ShellAccess.IsAllowed(_settings, userId))
+        {
+            ShellSessionManager.End(userId);
+            await bot.SendMessage(message.Chat.Id,
+                "⛔ Доступ к shell отозван",
+                cancellationToken: ct);
+            return;
+        }
+
+        if (!ShellAccess.TryValidateArgument(_settings, message.Text, out var argError))
+        {
+            await bot.SendMessage(message.Chat.Id, argError!,
+                replyMarkup: ShellUi.ModeKeyboard(session.Type == ShellType.Cmd ? "CMD" : "PowerShell"),
+                cancellationToken: ct);
+            return;
+        }
+
         await bot.SendChatAction(message.Chat.Id, ChatAction.Typing, cancellationToken: ct);
 
         var commandType = session.Type == ShellType.Cmd
@@ -584,8 +601,8 @@ public class BotHandler
         }
         catch (Exception ex)
         {
-            _logger.LogDebug(ex, "Failed to report user seen");
-            return true;
+            _logger.LogWarning(ex, "Authorization check failed for user {UserId} — denying access", user.Id);
+            return false;
         }
     }
 

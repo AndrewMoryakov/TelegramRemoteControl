@@ -9,7 +9,8 @@ public class HubSettings
     public string ApiKey { get; set; } = string.Empty;
     public int AgentTimeoutSeconds { get; set; } = 90;
     public int MaxAgentsPerUser { get; set; } = 10;
-    public int PairingCodeTtlDays { get; set; } = 180;
+    public int PairingCodeTtlMinutes { get; set; } = 15;
+    public int PairingMaxFailuresPerMinute { get; set; } = 5;
     public int AgentTokenTtlDays { get; set; } = 0; // 0 = no expiry
     public int RateLimitRequests { get; set; } = 60;
     public int RateLimitWindowSeconds { get; set; } = 60;

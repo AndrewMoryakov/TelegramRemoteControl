@@ -30,4 +30,13 @@ builder.Services.AddSingleton<CommandExecutor>();
 builder.Services.AddHostedService<AgentService>();
 
 var host = builder.Build();
+
+if (string.IsNullOrWhiteSpace(currentSettings.FileRootPath))
+{
+    var startupLogger = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger("Agent.Startup");
+    startupLogger.LogWarning(
+        "Agent:FileRootPath is not configured — file operations have NO sandbox and can access any path on the machine. " +
+        "Set Agent:FileRootPath in appsettings.json to restrict.");
+}
+
 host.Run();

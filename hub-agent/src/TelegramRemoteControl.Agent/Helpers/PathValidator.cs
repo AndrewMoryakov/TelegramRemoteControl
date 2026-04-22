@@ -36,7 +36,12 @@ public static class PathValidator
                 return null;
             }
 
-            if (!fullPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            var rootTrimmed = normalizedRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var rootWithSep = rootTrimmed + Path.DirectorySeparatorChar;
+
+            var matchesRootItself = fullPath.Equals(rootTrimmed, StringComparison.OrdinalIgnoreCase);
+            var matchesChild = fullPath.StartsWith(rootWithSep, StringComparison.OrdinalIgnoreCase);
+            if (!matchesRootItself && !matchesChild)
                 return null;
         }
 

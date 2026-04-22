@@ -18,10 +18,12 @@ public class AddPcCommand : ICommand
         try
         {
             var result = await ctx.Hub.GeneratePairCode(ctx.UserId);
+            var remaining = result.ExpiresAt - DateTime.UtcNow;
+            var minutes = Math.Max(1, (int)remaining.TotalMinutes);
             await ctx.Bot.SendMessage(ctx.ChatId,
                 $"🔗 Код привязки: `{result.Code}`\n\n" +
-                "Введите этот код в `appsettings.json` агента в поле `PairingCode`.\n" +
-                "Код действителен 6 месяцев.",
+                "Введите этот код в `appsettings.json` агента в поле `PairingCode` и запустите агента.\n" +
+                $"Код действителен ~{minutes} мин.",
                 parseMode: ParseMode.Markdown,
                 cancellationToken: ctx.CancellationToken);
         }

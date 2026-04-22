@@ -4,6 +4,15 @@ public class BotSettings
 {
     public string Token { get; set; } = string.Empty;
     public long[] AuthorizedUsers { get; set; } = Array.Empty<long>();
+    /// <summary>
+    /// Optional allowlist for /cmd and /powershell. If empty — only AuthorizedUsers (admins) may use shell.
+    /// Any user-id here must also be in AuthorizedUsers or approved via /approve.
+    /// </summary>
+    public long[] ShellAllowedUsers { get; set; } = Array.Empty<long>();
+    /// <summary>
+    /// Hard cap on shell command argument length to limit multi-line/huge payloads.
+    /// </summary>
+    public int ShellMaxArgumentLength { get; set; } = 2000;
     public string HubUrl { get; set; } = "http://localhost:5000";
     public string HubApiKey { get; set; } = string.Empty;
     public int FilesPageSize { get; set; } = 8;

@@ -39,7 +39,7 @@ public class HubDbContext
             );
 
             CREATE TABLE IF NOT EXISTS PairingRequests (
-                Code TEXT PRIMARY KEY,
+                CodeHash TEXT PRIMARY KEY,
                 UserId INTEGER NOT NULL,
                 ExpiresAt TEXT NOT NULL
             );
@@ -78,6 +78,7 @@ public class HubDbContext
 
         await EnsureAgentsColumnsAsync(conn);
         await EnsureUsersColumnsAsync(conn);
+        await EnsurePairingSchemaAsync(conn, _logger);
         _logger.LogInformation("Database initialized");
     }
 
@@ -363,6 +364,39 @@ public class HubDbContext
         }
     }
 
+    private static async Task EnsurePairingSchemaAsync(SqliteConnection conn, ILogger logger)
+    {
+        var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pragma = conn.CreateCommand();
+        pragma.CommandText = "PRAGMA table_info(PairingRequests)";
+        await using (var reader = await pragma.ExecuteReaderAsync())
+        {
+            while (await reader.ReadAsync())
+                columns.Add(reader.GetString(1));
+        }
+
+        if (columns.Count == 0)
+            return; // freshly created with new schema
+
+        if (columns.Contains("CodeHash"))
+            return; // already migrated
+
+        // Legacy schema with plain `Code` column — drop existing (all plain-text codes are compromised anyway)
+        // and recreate with the hashed-code schema. Any in-flight pairing codes must be regenerated.
+        logger.LogWarning("PairingRequests legacy schema detected. Dropping existing pairing codes and recreating table with CodeHash.");
+
+        var drop = conn.CreateCommand();
+        drop.CommandText = """
+            DROP TABLE PairingRequests;
+            CREATE TABLE PairingRequests (
+                CodeHash TEXT PRIMARY KEY,
+                UserId INTEGER NOT NULL,
+                ExpiresAt TEXT NOT NULL
+            );
+            """;
+        await drop.ExecuteNonQueryAsync();
+    }
+
     private static async Task EnsureUsersColumnsAsync(SqliteConnection conn)
     {
         var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -390,24 +424,26 @@ public class HubDbContext
 
         var cmd = conn.CreateCommand();
         cmd.CommandText = """
-            INSERT OR REPLACE INTO PairingRequests (Code, UserId, ExpiresAt)
-            VALUES (@code, @userId, @expires)
+            INSERT OR REPLACE INTO PairingRequests (CodeHash, UserId, ExpiresAt)
+            VALUES (@hash, @userId, @expires)
             """;
-        cmd.Parameters.AddWithValue("@code", request.Code);
+        cmd.Parameters.AddWithValue("@hash", request.CodeHash);
         cmd.Parameters.AddWithValue("@userId", request.UserId);
         cmd.Parameters.AddWithValue("@expires", request.ExpiresAt.ToString("O"));
 
         await cmd.ExecuteNonQueryAsync();
     }
 
-    public async Task<PairingRequest?> GetPairingRequest(string code)
+    public async Task<PairingRequest?> GetPairingRequestByCode(string code)
     {
+        var hash = PairingRequest.HashCode(code);
+
         await using var conn = new SqliteConnection(_connectionString);
         await conn.OpenAsync();
 
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT Code, UserId, ExpiresAt FROM PairingRequests WHERE Code = @code";
-        cmd.Parameters.AddWithValue("@code", code);
+        cmd.CommandText = "SELECT CodeHash, UserId, ExpiresAt FROM PairingRequests WHERE CodeHash = @hash";
+        cmd.Parameters.AddWithValue("@hash", hash);
 
         await using var reader = await cmd.ExecuteReaderAsync();
         if (!await reader.ReadAsync())
@@ -415,20 +451,22 @@ public class HubDbContext
 
         return new PairingRequest
         {
-            Code = reader.GetString(0),
+            CodeHash = reader.GetString(0),
             UserId = reader.GetInt64(1),
             ExpiresAt = DateTime.Parse(reader.GetString(2))
         };
     }
 
-    public async Task DeletePairingRequest(string code)
+    public async Task DeletePairingRequestByCode(string code)
     {
+        var hash = PairingRequest.HashCode(code);
+
         await using var conn = new SqliteConnection(_connectionString);
         await conn.OpenAsync();
 
         var cmd = conn.CreateCommand();
-        cmd.CommandText = "DELETE FROM PairingRequests WHERE Code = @code";
-        cmd.Parameters.AddWithValue("@code", code);
+        cmd.CommandText = "DELETE FROM PairingRequests WHERE CodeHash = @hash";
+        cmd.Parameters.AddWithValue("@hash", hash);
 
         await cmd.ExecuteNonQueryAsync();
     }

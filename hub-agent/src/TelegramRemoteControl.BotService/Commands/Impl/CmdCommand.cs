@@ -1,6 +1,6 @@
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types.Enums;
-using Telegram.Bot.Types.ReplyMarkups;
 using TelegramRemoteControl.BotService.Menu;
 using TelegramRemoteControl.Shared.Contracts.HubApi;
 using TelegramRemoteControl.Shared.Protocol;
@@ -9,6 +9,13 @@ namespace TelegramRemoteControl.BotService.Commands.Impl;
 
 public class CmdCommand : ICommand
 {
+    private readonly BotSettings _settings;
+
+    public CmdCommand(IOptions<BotSettings> settings)
+    {
+        _settings = settings.Value;
+    }
+
     public string Id => "cmd";
     public string[] Aliases => new[] { "/cmd" };
     public string Title => "CMD";
@@ -18,6 +25,12 @@ public class CmdCommand : ICommand
 
     public async Task ExecuteAsync(CommandContext ctx)
     {
+        if (!ShellAccess.IsAllowed(_settings, ctx.UserId))
+        {
+            await ctx.ReplyWithBack("⛔ Shell-команды запрещены. Обратитесь к администратору.");
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(ctx.Arguments))
         {
             ShellSessionManager.Start(ctx.UserId, ShellType.Cmd);
@@ -28,6 +41,12 @@ public class CmdCommand : ICommand
                 parseMode: ParseMode.Markdown,
                 replyMarkup: ShellUi.ModeKeyboard("CMD"),
                 cancellationToken: ctx.CancellationToken);
+            return;
+        }
+
+        if (!ShellAccess.TryValidateArgument(_settings, ctx.Arguments, out var argError))
+        {
+            await ctx.ReplyWithBack(argError!);
             return;
         }
 

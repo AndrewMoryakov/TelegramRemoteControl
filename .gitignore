@@ -5,6 +5,7 @@ publish/
 
 # Claude/IDE hidden folders
 .claude/
+memory/
 
 # IDE
 .vs/
