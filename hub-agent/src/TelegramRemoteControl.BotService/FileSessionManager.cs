@@ -17,6 +17,10 @@ internal static class FileSessionManager
         private readonly Dictionary<int, string> _pathCache = new();
         private int _nextId;
 
+        // BL-11: callers serialize handler invocations on this semaphore so two parallel
+        // taps (navigate + page, for example) don't mutate _pathCache / Items concurrently.
+        public SemaphoreSlim Lock { get; } = new(1, 1);
+
         public string? CurrentPath { get; private set; }
         public int CurrentPage { get; set; }
         public List<FileItem> Items { get; private set; } = new();

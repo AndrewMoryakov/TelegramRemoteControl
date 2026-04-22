@@ -98,7 +98,23 @@ public class CommandsController : ControllerBase
         var responseTask = _pendingCommands.WaitForResponse(command.RequestId, timeout);
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        await _hubContext.Clients.Client(agent.ConnectionId).ExecuteCommand(command);
+        try
+        {
+            await _hubContext.Clients.Client(agent.ConnectionId).ExecuteCommand(command);
+        }
+        catch (Exception ex)
+        {
+            // BL-10: without this, the TCS registered by WaitForResponse sits for the full
+            // CommandTimeoutSeconds even though the invoke already failed.
+            _logger.LogWarning(ex, "ExecuteCommand to {AgentId} failed", agent.AgentId);
+            _pendingCommands.Complete(command.RequestId, new AgentResponse
+            {
+                RequestId = command.RequestId,
+                Type = ResponseType.Error,
+                Success = false,
+                ErrorMessage = $"Не удалось отправить команду агенту: {ex.Message}"
+            });
+        }
         var response = await responseTask;
         sw.Stop();
 

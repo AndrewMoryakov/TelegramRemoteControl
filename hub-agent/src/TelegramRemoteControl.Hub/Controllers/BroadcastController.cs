@@ -83,6 +83,15 @@ public class BroadcastController : ControllerBase
             }
             catch (Exception ex)
             {
+                // BL-10: short-circuit the TCS so the slot in PendingCommandStore
+                // doesn't sit until CommandTimeoutSeconds expires.
+                _pendingCommands.Complete(command.RequestId, new AgentResponse
+                {
+                    RequestId = command.RequestId,
+                    Type = ResponseType.Error,
+                    Success = false,
+                    ErrorMessage = ex.Message
+                });
                 return new BroadcastResultDto
                 {
                     AgentId = x.reg.AgentId,

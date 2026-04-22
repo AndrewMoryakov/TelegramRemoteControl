@@ -29,6 +29,11 @@ public class FileCallbackHandler : ICallbackHandler
         var session = FileSessionManager.Get(ctx.UserId);
         var action = parts[1];
 
+        // BL-11: serialize per-user file-session handlers so two parallel taps cannot race
+        // on _pathCache / Items / CurrentPage.
+        await session.Lock.WaitAsync(ctx.CancellationToken);
+        try
+        {
         switch (action)
         {
             case "d":
@@ -58,6 +63,11 @@ public class FileCallbackHandler : ICallbackHandler
             case "refresh":
                 await HandleRefreshAsync(ctx, session);
                 break;
+        }
+        }
+        finally
+        {
+            session.Lock.Release();
         }
     }
 
