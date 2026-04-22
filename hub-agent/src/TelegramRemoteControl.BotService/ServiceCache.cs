@@ -3,25 +3,30 @@ using TelegramRemoteControl.BotService.Models;
 
 namespace TelegramRemoteControl.BotService;
 
+// BL-12: keyed by (userId, agentId) — see ProcessCache for rationale.
 internal static class ServiceCache
 {
-    private static readonly ConcurrentDictionary<long, CacheEntry> Cache = new();
+    private static readonly ConcurrentDictionary<(long UserId, string AgentId), CacheEntry> Cache = new();
     private static readonly TimeSpan Ttl = TimeSpan.FromMinutes(2);
 
-    public static void Set(long userId, List<ServiceInfo> items)
+    public static void Set(long userId, string? agentId, List<ServiceInfo> items)
     {
-        Cache[userId] = new CacheEntry(items, DateTimeOffset.UtcNow);
+        if (string.IsNullOrEmpty(agentId)) return;
+        Cache[(userId, agentId)] = new CacheEntry(items, DateTimeOffset.UtcNow);
     }
 
-    public static bool TryGet(long userId, out List<ServiceInfo> items)
+    public static bool TryGet(long userId, string? agentId, out List<ServiceInfo> items)
     {
         items = new List<ServiceInfo>();
-        if (!Cache.TryGetValue(userId, out var entry))
+        if (string.IsNullOrEmpty(agentId)) return false;
+
+        var key = (userId, agentId);
+        if (!Cache.TryGetValue(key, out var entry))
             return false;
 
         if (DateTimeOffset.UtcNow - entry.CreatedAt > Ttl)
         {
-            Cache.TryRemove(userId, out _);
+            Cache.TryRemove(key, out _);
             return false;
         }
 

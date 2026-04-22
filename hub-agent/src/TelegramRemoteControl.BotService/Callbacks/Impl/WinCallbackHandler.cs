@@ -85,7 +85,8 @@ public class WinCallbackHandler : ICallbackHandler
             return;
         }
 
-        WindowCache.Set(ctx.UserId, windows);
+        var listAgentId = (await ctx.Hub.GetSelectedDevice(ctx.UserId))?.AgentId;
+        WindowCache.Set(ctx.UserId, listAgentId, windows);
 
         var (text, keyboard) = WindowListUi.BuildList(windows);
         await EditOrSendAsync(ctx, text, keyboard, ParseMode.Markdown);
@@ -142,6 +143,16 @@ public class WinCallbackHandler : ICallbackHandler
     {
         if (parts.Length < 3 || !long.TryParse(parts[2], out var hwnd))
             return;
+
+        // BL-12: block stale buttons from close/min/max/focus/restore landing on
+        // a different PC. FindWindowAsync keys the cache by (userId, selectedAgentId)
+        // and will only find hwnd if it exists on the currently selected device.
+        var win = await FindWindowAsync(ctx, hwnd);
+        if (win == null)
+        {
+            await TryAnswerAsync(ctx, "Список устарел, повторите /win");
+            return;
+        }
 
         var response = await ctx.Hub.ExecuteCommand(new ExecuteCommandRequest
         {
@@ -224,7 +235,8 @@ public class WinCallbackHandler : ICallbackHandler
 
     private async Task<WindowInfo?> FindWindowAsync(CallbackContext ctx, long hwnd)
     {
-        if (WindowCache.TryGet(ctx.UserId, out var cached))
+        var agentId = (await ctx.Hub.GetSelectedDevice(ctx.UserId))?.AgentId;
+        if (WindowCache.TryGet(ctx.UserId, agentId, out var cached))
             return cached.FirstOrDefault(w => w.Hwnd == hwnd);
 
         var response = await ctx.Hub.ExecuteCommand(new ExecuteCommandRequest
@@ -240,7 +252,7 @@ public class WinCallbackHandler : ICallbackHandler
             response.JsonPayload,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<WindowInfo>();
 
-        WindowCache.Set(ctx.UserId, windows);
+        WindowCache.Set(ctx.UserId, agentId, windows);
         return windows.FirstOrDefault(w => w.Hwnd == hwnd);
     }
 

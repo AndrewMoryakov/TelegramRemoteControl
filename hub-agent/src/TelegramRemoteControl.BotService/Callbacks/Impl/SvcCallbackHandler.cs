@@ -20,6 +20,15 @@ public class SvcCallbackHandler : ICallbackHandler
         var action = parts[1];
         var name = parts[2];
 
+        // BL-12: make sure the cached service list still belongs to the selected device.
+        var selectedAgentId = (await ctx.Hub.GetSelectedDevice(ctx.UserId))?.AgentId;
+        if (!ServiceCache.TryGet(ctx.UserId, selectedAgentId, out var cachedServices)
+            || cachedServices.All(s => !string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase)))
+        {
+            await TryAnswerAsync(ctx, "Список устарел, повторите /services");
+            return;
+        }
+
         var response = await ctx.Hub.ExecuteCommand(new ExecuteCommandRequest
         {
             UserId = ctx.UserId,
@@ -54,7 +63,8 @@ public class SvcCallbackHandler : ICallbackHandler
             listResponse.JsonPayload,
             new JsonSerializerOptions { PropertyNameCaseInsensitive = true }) ?? new List<ServiceInfo>();
 
-        ServiceCache.Set(ctx.UserId, services);
+        var agentId = (await ctx.Hub.GetSelectedDevice(ctx.UserId))?.AgentId;
+        ServiceCache.Set(ctx.UserId, agentId, services);
 
         var svc = services.FirstOrDefault(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
         if (svc == null)

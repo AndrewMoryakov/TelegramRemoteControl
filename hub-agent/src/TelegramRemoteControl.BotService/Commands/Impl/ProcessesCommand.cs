@@ -23,7 +23,8 @@ public class ProcessesCommand : ProxyCommandBase
     {
         if (!string.IsNullOrWhiteSpace(ctx.Arguments) && int.TryParse(ctx.Arguments, out var index))
         {
-            if (!ProcessCache.TryGet(ctx.UserId, out var cached))
+            var agentIdForIndex = (await ctx.Hub.GetSelectedDevice(ctx.UserId))?.AgentId;
+            if (!ProcessCache.TryGet(ctx.UserId, agentIdForIndex, out var cached))
             {
                 await ctx.ReplyWithMenu("❌ Сначала выполните `/processes`");
                 return;
@@ -59,7 +60,8 @@ public class ProcessesCommand : ProxyCommandBase
         }
 
         var sorted = ProcessListUi.SortForList(processes);
-        ProcessCache.Set(ctx.UserId, sorted);
+        var agentIdForList = (await ctx.Hub.GetSelectedDevice(ctx.UserId))?.AgentId;
+        ProcessCache.Set(ctx.UserId, agentIdForList, sorted);
 
         var text = ProcessListUi.BuildList(sorted);
         await ctx.ReplyWithMenu(text);

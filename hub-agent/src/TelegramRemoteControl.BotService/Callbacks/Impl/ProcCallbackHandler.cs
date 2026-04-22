@@ -30,7 +30,8 @@ public class ProcCallbackHandler : ICallbackHandler
 
     private async Task HandleInfoAsync(CallbackContext ctx, string[] parts)
     {
-        if (!ProcessCache.TryGet(ctx.UserId, out var items))
+        var agentId = (await ctx.Hub.GetSelectedDevice(ctx.UserId))?.AgentId;
+        if (!ProcessCache.TryGet(ctx.UserId, agentId, out var items))
         {
             await TryAnswerAsync(ctx, "Список устарел, отправьте /processes");
             return;
@@ -70,6 +71,16 @@ public class ProcCallbackHandler : ICallbackHandler
     {
         if (parts.Length < 3 || !int.TryParse(parts[2], out var pid))
             return;
+
+        // BL-12: make sure the cached PID table still belongs to the currently
+        // selected device; otherwise the button was produced on a different PC
+        // and the PID points at an unrelated process.
+        var agentId = (await ctx.Hub.GetSelectedDevice(ctx.UserId))?.AgentId;
+        if (!ProcessCache.TryGet(ctx.UserId, agentId, out var items) || items.All(p => p.Pid != pid))
+        {
+            await TryAnswerAsync(ctx, "Список устарел, повторите /processes");
+            return;
+        }
 
         var response = await ctx.Hub.ExecuteCommand(new ExecuteCommandRequest
         {

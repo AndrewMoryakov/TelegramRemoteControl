@@ -22,7 +22,8 @@ public class ServicesCommand : ProxyCommandBase
     {
         if (!string.IsNullOrWhiteSpace(ctx.Arguments))
         {
-            if (!ServiceCache.TryGet(ctx.UserId, out var cached))
+            var agentIdForArg = (await ctx.Hub.GetSelectedDevice(ctx.UserId))?.AgentId;
+            if (!ServiceCache.TryGet(ctx.UserId, agentIdForArg, out var cached))
             {
                 await ctx.ReplyWithBack("❌ Сначала выполните `/services`");
                 return;
@@ -59,7 +60,8 @@ public class ServicesCommand : ProxyCommandBase
             return;
         }
 
-        ServiceCache.Set(ctx.UserId, services);
+        var agentIdForList = (await ctx.Hub.GetSelectedDevice(ctx.UserId))?.AgentId;
+        ServiceCache.Set(ctx.UserId, agentIdForList, services);
         var text = ServiceUi.BuildListText(services);
         await ctx.ReplyWithBack(text);
     }

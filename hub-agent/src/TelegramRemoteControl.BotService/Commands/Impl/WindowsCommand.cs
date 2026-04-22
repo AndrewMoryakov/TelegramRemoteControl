@@ -37,7 +37,8 @@ public class WindowsCommand : ProxyCommandBase
             return;
         }
 
-        WindowCache.Set(ctx.UserId, windows);
+        var agentId = (await ctx.Hub.GetSelectedDevice(ctx.UserId))?.AgentId;
+        WindowCache.Set(ctx.UserId, agentId, windows);
 
         var (text, keyboard) = WindowListUi.BuildList(windows);
         await ctx.Bot.SendMessage(ctx.ChatId, text,
