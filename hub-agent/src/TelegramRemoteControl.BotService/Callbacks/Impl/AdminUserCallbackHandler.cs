@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types.Enums;
 using TelegramRemoteControl.Shared.Contracts.HubApi;
@@ -10,10 +11,23 @@ namespace TelegramRemoteControl.BotService.Callbacks.Impl;
 /// </summary>
 public class AdminUserCallbackHandler : ICallbackHandler
 {
+    private readonly BotSettings _settings;
+
+    public AdminUserCallbackHandler(IOptions<BotSettings> settings)
+    {
+        _settings = settings.Value;
+    }
+
     public string Prefix => "admin";
 
     public async Task HandleAsync(CallbackContext ctx)
     {
+        if (!IsAdmin(ctx.UserId))
+        {
+            await AnswerAsync(ctx, "⛔ Только для админов");
+            return;
+        }
+
         // admin:approve:123 or admin:deny:123
         var parts = ctx.Data.Split(':');
         if (parts.Length < 3 || !long.TryParse(parts[2], out var targetUserId))
@@ -58,4 +72,7 @@ public class AdminUserCallbackHandler : ICallbackHandler
         try { await ctx.Bot.AnswerCallbackQuery(ctx.Query.Id, text, cancellationToken: ctx.CancellationToken); }
         catch { }
     }
+
+    private bool IsAdmin(long userId) =>
+        _settings.AuthorizedUsers.Length > 0 && _settings.AuthorizedUsers.Contains(userId);
 }

@@ -26,6 +26,17 @@ public class HubDbContext
         await using var conn = new SqliteConnection(_connectionString);
         await conn.OpenAsync();
 
+        // BL-14: WAL + busy_timeout eliminate sporadic SQLITE_BUSY under concurrent
+        // writes (UpsertUser / AddAuditLog / UpdateAgentLastSeenAsync hitting the
+        // same journal lock). synchronous=NORMAL is safe with WAL for our workload.
+        var pragma = conn.CreateCommand();
+        pragma.CommandText = """
+            PRAGMA journal_mode = WAL;
+            PRAGMA busy_timeout = 5000;
+            PRAGMA synchronous = NORMAL;
+            """;
+        await pragma.ExecuteNonQueryAsync();
+
         var cmd = conn.CreateCommand();
         cmd.CommandText = """
             CREATE TABLE IF NOT EXISTS Agents (

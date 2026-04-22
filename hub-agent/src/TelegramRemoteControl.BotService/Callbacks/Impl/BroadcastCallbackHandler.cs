@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Telegram.Bot;
 using Telegram.Bot.Types;
 using TelegramRemoteControl.Shared.Contracts.HubApi;
@@ -7,6 +8,13 @@ namespace TelegramRemoteControl.BotService.Callbacks.Impl;
 
 public class BroadcastCallbackHandler : ICallbackHandler
 {
+    private readonly BotSettings _settings;
+
+    public BroadcastCallbackHandler(IOptions<BotSettings> settings)
+    {
+        _settings = settings.Value;
+    }
+
     public string Prefix => "bcast";
 
     private static readonly Dictionary<string, (CommandType Type, string Label)> Actions =
@@ -20,6 +28,12 @@ public class BroadcastCallbackHandler : ICallbackHandler
 
     public async Task HandleAsync(CallbackContext ctx)
     {
+        if (!IsAdmin(ctx.UserId))
+        {
+            try { await ctx.Bot.AnswerCallbackQuery(ctx.Query.Id, "⛔ Только для админов", cancellationToken: ctx.CancellationToken); } catch { }
+            return;
+        }
+
         var action = ctx.Data.Length > "bcast:".Length ? ctx.Data["bcast:".Length..] : string.Empty;
 
         if (!Actions.TryGetValue(action, out var cmd))
@@ -80,4 +94,7 @@ public class BroadcastCallbackHandler : ICallbackHandler
             }
         }
     }
+
+    private bool IsAdmin(long userId) =>
+        _settings.AuthorizedUsers.Length > 0 && _settings.AuthorizedUsers.Contains(userId);
 }

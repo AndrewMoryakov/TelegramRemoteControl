@@ -15,6 +15,14 @@ builder.Logging.AddConsole();
 builder.Services.Configure<BotSettings>(builder.Configuration.GetSection("BotSettings"));
 
 var botSettings = builder.Configuration.GetSection("BotSettings").Get<BotSettings>() ?? new BotSettings();
+
+// BL-16: without at least one admin in AuthorizedUsers, /approve, /deny, admin-only
+// callbacks and the NotifyAdminsAboutNewUser path all silently no-op, leaving
+// /register requests with nobody to action them. Fail fast at startup.
+if (botSettings.AuthorizedUsers == null || botSettings.AuthorizedUsers.Length == 0)
+    throw new InvalidOperationException(
+        "BotSettings.AuthorizedUsers is empty. Set ADMIN_USER_ID in .env so at least one admin can approve new users.");
+
 builder.Services.AddSingleton(botSettings);
 
 var botHttpClient = new HttpClient(new HttpClientHandler
